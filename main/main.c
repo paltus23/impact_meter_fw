@@ -4,11 +4,11 @@
 #include "data_storage.h"
 #include "http_server.h"
 #include "led.h"
-// #include "wifi.h"
+#include "wifi.h"
 
 void app_main(void)
 {
-    // wifi_init();
+    wifi_init();
     data_storage_init();
     battery_measure_init();
     led_init();
