@@ -19,6 +19,8 @@ static const char *TAG = "adxl375";
 #define SPI_MULTI 0x40U
 /** Address field mask (bits A5–A0). */
 #define SPI_ADDR_MASK 0x3FU
+#define FIFO_SAMPLES_MASK 0x3FU
+#define FIFO_MAX_SAMPLES 32U
 
 /**
  * Register addresses — Table 15, Register Map.
@@ -76,6 +78,21 @@ static esp_err_t spi_tx_rx(adxl375_handle_t dev, const void *tx, void *rx, size_
     return spi_device_polling_transmit(dev->spi, &t);
 }
 
+static esp_err_t adxl375_read_multi(adxl375_handle_t handle, uint8_t start_reg, uint8_t *data, size_t data_len)
+{
+    ESP_RETURN_ON_FALSE(handle && data && data_len > 0, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+
+    uint8_t tx[7] = {0};
+    uint8_t rx[7] = {0};
+    ESP_RETURN_ON_FALSE(data_len <= (sizeof(tx) - 1U), ESP_ERR_INVALID_SIZE, TAG, "data_len");
+
+    tx[0] = (uint8_t)(SPI_READ | SPI_MULTI | (start_reg & SPI_ADDR_MASK));
+    esp_err_t err = spi_tx_rx(handle, tx, rx, data_len + 1U);
+    ESP_RETURN_ON_ERROR(err, TAG, "spi");
+    memcpy(data, &rx[1], data_len);
+    return ESP_OK;
+}
+
 esp_err_t adxl375_read_reg(adxl375_handle_t handle, uint8_t reg, uint8_t *value)
 {
     ESP_RETURN_ON_FALSE(handle && value, ESP_ERR_INVALID_ARG, TAG, "bad arg");
@@ -119,24 +136,123 @@ esp_err_t adxl375_configure(adxl375_handle_t handle, uint8_t bw_rate, uint8_t po
     return ESP_OK;
 }
 
+esp_err_t adxl375_data_format(adxl375_handle_t handle, bool self_test, bool spi_3wire, bool int_invert, bool justify_msb)
+{
+    uint8_t reg_value = 0;
+    reg_value |= self_test ? ADXL375_DATA_FORMAT_SELF_TEST : 0;
+    reg_value |= spi_3wire ? ADXL375_DATA_FORMAT_SPI_3WIRE : 0;
+    reg_value |= int_invert ? ADXL375_DATA_FORMAT_INT_INVERT : 0;
+    reg_value |= justify_msb ? ADXL375_DATA_FORMAT_JUSTIFY_MSb : 0;
+
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_DATA_FORMAT, reg_value), TAG, "data_format");
+    return ESP_OK;
+}
+
 esp_err_t adxl375_read_xyz(adxl375_handle_t handle, int16_t *x, int16_t *y, int16_t *z)
 {
     ESP_RETURN_ON_FALSE(handle && x && y && z, ESP_ERR_INVALID_ARG, TAG, "bad arg");
 
-    uint8_t tx[7];
-    uint8_t rx[7];
+    uint8_t data[6] = {0};
+    esp_err_t err = adxl375_read_multi(handle, REG_DATAX0, data, sizeof(data));
+    ESP_RETURN_ON_ERROR(err, TAG, "read xyz");
 
-    tx[0] = (uint8_t)(SPI_READ | SPI_MULTI | REG_DATAX0);
-    memset(&tx[1], 0, sizeof(tx) - 1U);
-
-    esp_err_t err = spi_tx_rx(handle, tx, rx, sizeof(tx));
-    ESP_RETURN_ON_ERROR(err, TAG, "spi");
-
-    *x = (int16_t)((uint16_t)rx[2] << 8 | rx[1]) * MG_PER_LSB;
-    *y = (int16_t)((uint16_t)rx[4] << 8 | rx[3]) * MG_PER_LSB;
-    *z = (int16_t)((uint16_t)rx[6] << 8 | rx[5]) * MG_PER_LSB;
+    *x = (int16_t)((uint16_t)data[1] << 8 | data[0]) * MG_PER_LSB;
+    *y = (int16_t)((uint16_t)data[3] << 8 | data[2]) * MG_PER_LSB;
+    *z = (int16_t)((uint16_t)data[5] << 8 | data[4]) * MG_PER_LSB;
     return ESP_OK;
 }
+
+esp_err_t adxl375_fifo_configure(adxl375_handle_t handle, adxl375_fifo_mode_t mode, uint8_t samples, bool trigger_on_int2)
+{
+    ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+    ESP_RETURN_ON_FALSE(samples <= 31U, ESP_ERR_INVALID_ARG, TAG, "samples");
+
+    uint8_t fifo_ctl = (uint8_t)mode;
+    fifo_ctl |= trigger_on_int2 ? ADXL375_FIFO_CTL_TRIGGER_INT2 : 0U;
+    fifo_ctl |= (samples & 0x1FU);
+
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_FIFO_CTL, fifo_ctl), TAG, "fifo_ctl");
+    return ESP_OK;
+}
+
+esp_err_t adxl375_interrupt_configure(adxl375_handle_t handle, uint8_t enable_mask, uint8_t map_to_int2_mask)
+{
+    ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_INT_MAP, map_to_int2_mask), TAG, "int_map");
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_INT_ENABLE, enable_mask), TAG, "int_enable");
+    return ESP_OK;
+}
+
+esp_err_t adxl375_read_int_source(adxl375_handle_t handle, uint8_t *int_source)
+{
+    ESP_RETURN_ON_FALSE(handle && int_source, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+    return adxl375_read_reg(handle, REG_INT_SOURCE, int_source);
+}
+
+esp_err_t adxl375_fifo_get_samples_count(adxl375_handle_t handle, uint8_t *samples)
+{
+    ESP_RETURN_ON_FALSE(handle && samples, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+
+    uint8_t fifo_status = 0;
+    ESP_RETURN_ON_ERROR(adxl375_read_reg(handle, REG_FIFO_STATUS, &fifo_status), TAG, "fifo_status");
+    *samples = (uint8_t)(fifo_status & FIFO_SAMPLES_MASK);
+    return ESP_OK;
+}
+
+esp_err_t adxl375_read_fifo_samples(adxl375_handle_t handle, adxl375_sample_t *out_samples, size_t max_samples, size_t *read_samples)
+{
+    ESP_RETURN_ON_FALSE(handle && out_samples && read_samples, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+    ESP_RETURN_ON_FALSE(max_samples > 0U, ESP_ERR_INVALID_ARG, TAG, "max_samples");
+
+    uint8_t fifo_samples = 0;
+    ESP_RETURN_ON_ERROR(adxl375_fifo_get_samples_count(handle, &fifo_samples), TAG, "fifo count");
+
+    size_t to_read = fifo_samples;
+    if (to_read > max_samples)
+    {
+        to_read = max_samples;
+    }
+
+    for (size_t i = 0; i < to_read; ++i)
+    {
+        uint8_t data[6] = {0};
+        ESP_RETURN_ON_ERROR(adxl375_read_multi(handle, REG_DATAX0, data, sizeof(data)), TAG, "fifo read");
+        out_samples[i].x = (int16_t)((uint16_t)data[1] << 8 | data[0]) * MG_PER_LSB;
+        out_samples[i].y = (int16_t)((uint16_t)data[3] << 8 | data[2]) * MG_PER_LSB;
+        out_samples[i].z = (int16_t)((uint16_t)data[5] << 8 | data[4]) * MG_PER_LSB;
+    }
+
+    *read_samples = to_read;
+    return ESP_OK;
+}
+
+// esp_err_t adxl375_clear_fifo_samples(adxl375_handle_t handle, adxl375_sample_t *out_samples, size_t max_samples, size_t *read_samples)
+// {
+//     ESP_RETURN_ON_FALSE(handle && out_samples && read_samples, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+//     ESP_RETURN_ON_FALSE(max_samples > 0U, ESP_ERR_INVALID_ARG, TAG, "max_samples");
+
+//     uint8_t fifo_samples = 0;
+//     ESP_RETURN_ON_ERROR(adxl375_fifo_get_samples_count(handle, &fifo_samples), TAG, "fifo count");
+
+//     size_t to_read = fifo_samples;
+//     if (to_read > max_samples)
+//     {
+//         to_read = max_samples;
+//     }
+
+//     for (size_t i = 0; i < to_read; ++i)
+//     {
+//         uint8_t data[6] = {0};
+//         ESP_RETURN_ON_ERROR(adxl375_read_multi(handle, REG_DATAX0, data, sizeof(data)), TAG, "fifo read");
+//         out_samples[i].x = (int16_t)((uint16_t)data[1] << 8 | data[0]) * MG_PER_LSB;
+//         out_samples[i].y = (int16_t)((uint16_t)data[3] << 8 | data[2]) * MG_PER_LSB;
+//         out_samples[i].z = (int16_t)((uint16_t)data[5] << 8 | data[4]) * MG_PER_LSB;
+//     }
+
+//     *read_samples = to_read;
+//     return ESP_OK;
+// }
 
 esp_err_t adxl375_spi_init(const adxl375_spi_config_t *cfg, adxl375_handle_t *out_handle)
 {
