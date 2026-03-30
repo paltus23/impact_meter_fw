@@ -184,6 +184,29 @@ esp_err_t adxl375_interrupt_configure(adxl375_handle_t handle, uint8_t enable_ma
     return ESP_OK;
 }
 
+esp_err_t adxl375_shock_configure(adxl375_handle_t handle, uint8_t thresh, uint8_t dur, uint8_t axes_mask)
+{
+    ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_THRESH_SHOCK, thresh), TAG, "thresh_shock");
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_DUR, dur), TAG, "dur");
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_SHOCK_AXES, axes_mask & 0x07U), TAG, "shock_axes");
+    return ESP_OK;
+}
+
+esp_err_t adxl375_act_configure(adxl375_handle_t handle, uint8_t thresh, uint8_t ctl_mask)
+{
+    ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "bad arg");
+
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_THRESH_ACT, thresh), TAG, "thresh_act");
+
+    uint8_t act_inact_ctl = 0;
+    ESP_RETURN_ON_ERROR(adxl375_read_reg(handle, REG_ACT_INACT_CTL, &act_inact_ctl), TAG, "act_inact_ctl read");
+    act_inact_ctl = (uint8_t)((act_inact_ctl & 0x0FU) | (ctl_mask & 0xF0U));
+    ESP_RETURN_ON_ERROR(adxl375_write_reg(handle, REG_ACT_INACT_CTL, act_inact_ctl), TAG, "act_inact_ctl write");
+    return ESP_OK;
+}
+
 esp_err_t adxl375_read_int_source(adxl375_handle_t handle, uint8_t *int_source)
 {
     ESP_RETURN_ON_FALSE(handle && int_source, ESP_ERR_INVALID_ARG, TAG, "bad arg");

@@ -85,6 +85,24 @@ extern "C"
 #define ADXL375_INT_WATERMARK (1U << 1)
 #define ADXL375_INT_OVERRUN (1U << 0)
 
+/* --- Register 0x2A SHOCK_AXES — axis enable bits for shock detection -------- */
+/** 1 LSB = 780 mg (THRESH_SHOCK, register 0x1D). */
+#define ADXL375_SHOCK_THRESH_MG_PER_LSB 780U
+/** 1 LSB = 625 µs (DUR, register 0x21). */
+#define ADXL375_SHOCK_DUR_US_PER_LSB 625U
+#define ADXL375_SHOCK_AXES_X (1U << 0)
+#define ADXL375_SHOCK_AXES_Y (1U << 1)
+#define ADXL375_SHOCK_AXES_Z (1U << 2)
+
+/* --- Register 0x27 ACT_INACT_CTL — activity detection (upper nibble) -------- */
+/** 1 LSB = 780 mg (THRESH_ACT, register 0x24). */
+#define ADXL375_ACT_THRESH_MG_PER_LSB 780U
+/** AC-coupled activity detection (compares against a reference, not zero). */
+#define ADXL375_ACT_CTL_AC     (1U << 7)
+#define ADXL375_ACT_CTL_AXES_Z (1U << 6)
+#define ADXL375_ACT_CTL_AXES_Y (1U << 5)
+#define ADXL375_ACT_CTL_AXES_X (1U << 4)
+
     /* --- Register 0x38 FIFO_CTL — Table 9, Table 17 ------------------------------ */
     typedef enum
     {
@@ -151,6 +169,22 @@ typedef struct
      * `map_to_int2_mask` bits route selected interrupts to INT2, remaining to INT1.
      */
     esp_err_t adxl375_interrupt_configure(adxl375_handle_t handle, uint8_t enable_mask, uint8_t map_to_int2_mask);
+
+    /**
+     * Configure shock detection registers.
+     * `thresh`: THRESH_SHOCK value (1 LSB = `ADXL375_SHOCK_THRESH_MG_PER_LSB` mg).
+     * `dur`: DUR value (1 LSB = `ADXL375_SHOCK_DUR_US_PER_LSB` µs).
+     * `axes_mask`: OR of `ADXL375_SHOCK_AXES_X/Y/Z` to select participating axes.
+     */
+    esp_err_t adxl375_shock_configure(adxl375_handle_t handle, uint8_t thresh, uint8_t dur, uint8_t axes_mask);
+
+    /**
+     * Configure activity detection registers.
+     * `thresh`: THRESH_ACT value (1 LSB = `ADXL375_ACT_THRESH_MG_PER_LSB` mg).
+     * `ctl_mask`: OR of `ADXL375_ACT_CTL_AC` and `ADXL375_ACT_CTL_AXES_X/Y/Z`.
+     *             Only the upper nibble (activity bits) of ACT_INACT_CTL is modified.
+     */
+    esp_err_t adxl375_act_configure(adxl375_handle_t handle, uint8_t thresh, uint8_t ctl_mask);
 
     /** Read and return INT_SOURCE register value. */
     esp_err_t adxl375_read_int_source(adxl375_handle_t handle, uint8_t *int_source);

@@ -25,13 +25,23 @@
 #define ADXL375_INT1_PIN 5
 #define ADXL375_INT2_PIN 1
 
-#define ACCEL_ODR ADXL375_ODR_100_HZ
+#define ACCEL_ODR ADXL375_ODR_3200_HZ
 
 #define ADXL375_FIFO_WATERMARK_SAMPLES 16
 #define ADXL375_FIFO_READ_BUFFER_SAMPLES 32
 
+/* Shock detection: threshold = 50 g (50000 mg / 780 mg per LSB ≈ 64),
+ * duration = 10 ms (10000 µs / 625 µs per LSB = 16). */
+#define ACCEL_SHOCK_THRESHOLD_LSB 10U
+#define ACCEL_SHOCK_DURATION_LSB 2U
+#define ACCEL_SHOCK_AXES (ADXL375_SHOCK_AXES_X | ADXL375_SHOCK_AXES_Y | ADXL375_SHOCK_AXES_Z)
+
+/* Activity detection: threshold = 5 g (5000 mg / 780 mg per LSB ≈ 6), AC-coupled, all axes. */
+#define ACCEL_ACT_THRESHOLD_LSB 6U
+#define ACCEL_ACT_CTL (ADXL375_ACT_CTL_AC | ADXL375_ACT_CTL_AXES_X | ADXL375_ACT_CTL_AXES_Y | ADXL375_ACT_CTL_AXES_Z)
+
 #define ACCEL_CAPTURE_FILE_NAME "impact_capture.bin"
-#define ACCEL_PRECAPTURE_DURATION_MS 100
+#define ACCEL_PRECAPTURE_DURATION_MS 200
 #define ACCEL_RING_BUFFER_SAMPLES ((ACCEL_PRECAPTURE_DURATION_MS * 100) / 1000)
 #define ACCEL_CAPTURE_DURATION_MS 1000
 
@@ -176,11 +186,19 @@ static void accel_task(void *arg)
             continue;
         }
 
+        static TickType_t print_ticks = 0;
+        TickType_t elapsed_ticks = xTaskGetTickCount() - print_ticks;
+        if (pdTICKS_TO_MS(elapsed_ticks) >= pdMS_TO_TICKS(500))
+        {
+            print_ticks = xTaskGetTickCount();
+            ESP_LOGI(TAG, "%d %d %d",
+                     fifo_samples[0].x, fifo_samples[0].y, fifo_samples[0].z);
+        }
         accel_ring_buffer_write(fifo_samples, read_samples);
 
         if (!event_triggered)
         {
-            if (accel_start_event_occurred())
+            if ((int_source & ADXL375_INT_SINGLE_SHOCK) || (int_source & ADXL375_INT_ACTIVITY))
             {
                 esp_err_t ret = data_storage_open_profile(ACCEL_CAPTURE_FILE_NAME, &capture_file);
                 if (ret != ESP_OK)
@@ -302,8 +320,8 @@ static esp_err_t log_profile(const char *name)
         size_t samples_read = bytes_read / sizeof(adxl375_sample_t);
         for (size_t i = 0; i < samples_read; ++i)
         {
-            ESP_LOGI(TAG, "idx=%u %d %d %d",
-                     (unsigned)sample_index, chunk[i].x, chunk[i].y, chunk[i].z);
+            printf("idx=%4u %d %d %d\n",
+                   (unsigned)sample_index, chunk[i].x, chunk[i].y, chunk[i].z);
             sample_index++;
         }
 
@@ -335,6 +353,14 @@ void accel_init(void)
 
     ESP_ERROR_CHECK(adxl375_fifo_configure(s_adxl, ADXL375_FIFO_MODE_BYPASS, ADXL375_FIFO_WATERMARK_SAMPLES, false));
 
+    // ESP_ERROR_CHECK(adxl375_shock_configure(s_adxl,
+    //                                         ACCEL_SHOCK_THRESHOLD_LSB,
+    //                                         ACCEL_SHOCK_DURATION_LSB,
+    //                                         ACCEL_SHOCK_AXES));
+    ESP_ERROR_CHECK(adxl375_act_configure(s_adxl,
+                                          ACCEL_ACT_THRESHOLD_LSB,
+                                          ACCEL_ACT_CTL));
+
     uint8_t int_source = 0;
     adxl375_read_int_source(s_adxl, &int_source);
 
@@ -344,6 +370,6 @@ void accel_init(void)
                 ACCEL_TASK_PRIORITY, &s_accel_task_handle);
 
     ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, 0, 0x00));
-    ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, ADXL375_INT_WATERMARK, 0x00));
+    ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, ADXL375_INT_WATERMARK | ADXL375_INT_SINGLE_SHOCK | ADXL375_INT_ACTIVITY, 0x00));
     ESP_ERROR_CHECK(adxl375_fifo_configure(s_adxl, ADXL375_FIFO_MODE_STREAM, ADXL375_FIFO_WATERMARK_SAMPLES, false));
 }
