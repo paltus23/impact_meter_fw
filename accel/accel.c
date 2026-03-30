@@ -2,7 +2,11 @@
 
 #include "adxl375.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #include "driver/gpio.h"
+#include "../data_storage/data_storage.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -21,13 +25,107 @@
 #define ADXL375_INT1_PIN 5
 #define ADXL375_INT2_PIN 1
 
+#define ACCEL_ODR ADXL375_ODR_100_HZ
+
 #define ADXL375_FIFO_WATERMARK_SAMPLES 16
 #define ADXL375_FIFO_READ_BUFFER_SAMPLES 32
+
+#define ACCEL_CAPTURE_FILE_NAME "impact_capture.bin"
+#define ACCEL_PRECAPTURE_DURATION_MS 100
+#define ACCEL_RING_BUFFER_SAMPLES ((ACCEL_PRECAPTURE_DURATION_MS * 100) / 1000)
+#define ACCEL_CAPTURE_DURATION_MS 1000
 
 static adxl375_handle_t s_adxl;
 static TaskHandle_t s_accel_task_handle;
 
 char TAG[] = "accel";
+
+typedef struct
+{
+    adxl375_sample_t samples[ACCEL_RING_BUFFER_SAMPLES];
+    size_t head;
+    size_t count;
+} accel_ring_buffer_t;
+
+static accel_ring_buffer_t s_pre_event_buffer;
+
+static esp_err_t log_profile(const char *name);
+
+static void accel_ring_buffer_write(const adxl375_sample_t *samples, size_t sample_count)
+{
+    if (!samples || sample_count == 0U)
+    {
+        return;
+    }
+
+    for (size_t i = 0; i < sample_count; ++i)
+    {
+        s_pre_event_buffer.samples[s_pre_event_buffer.head] = samples[i];
+        s_pre_event_buffer.head = (s_pre_event_buffer.head + 1U) % ACCEL_RING_BUFFER_SAMPLES;
+        if (s_pre_event_buffer.count < ACCEL_RING_BUFFER_SAMPLES)
+        {
+            s_pre_event_buffer.count++;
+        }
+    }
+}
+
+static esp_err_t accel_ring_buffer_flush_to_file(data_storage_file_t file)
+{
+    if (!file)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (s_pre_event_buffer.count == 0U)
+    {
+        return ESP_OK;
+    }
+
+    const size_t start = (s_pre_event_buffer.head + ACCEL_RING_BUFFER_SAMPLES - s_pre_event_buffer.count) % ACCEL_RING_BUFFER_SAMPLES;
+
+    const size_t first_part = ACCEL_RING_BUFFER_SAMPLES - start;
+    const size_t first_count = (s_pre_event_buffer.count < first_part) ? s_pre_event_buffer.count : first_part;
+    if (first_count > 0U)
+    {
+        esp_err_t ret = data_storage_write(file,
+                                           &s_pre_event_buffer.samples[start],
+                                           first_count * sizeof(adxl375_sample_t));
+        if (ret != ESP_OK)
+        {
+            return ret;
+        }
+    }
+
+    const size_t remaining = s_pre_event_buffer.count - first_count;
+    if (remaining > 0U)
+    {
+        esp_err_t ret = data_storage_write(file,
+                                           &s_pre_event_buffer.samples[0],
+                                           remaining * sizeof(adxl375_sample_t));
+        if (ret != ESP_OK)
+        {
+            return ret;
+        }
+    }
+
+    s_pre_event_buffer.count = 0U;
+    return ESP_OK;
+}
+TickType_t event_start_tick = 0;
+static bool accel_start_event_occurred(void)
+{
+    /* User-defined trigger hook: replace this condition with your event logic. */
+
+    TickType_t elapsed_ticks = xTaskGetTickCount() - event_start_tick;
+
+    if (elapsed_ticks > pdMS_TO_TICKS(4000))
+    {
+        event_start_tick = xTaskGetTickCount();
+        return true;
+    }
+
+    return false;
+}
 
 static void IRAM_ATTR adxl375_int1_isr(void *arg)
 {
@@ -44,6 +142,11 @@ static void accel_task(void *arg)
 {
     (void)arg;
     adxl375_sample_t fifo_samples[ADXL375_FIFO_READ_BUFFER_SAMPLES] = {0};
+    bool event_triggered = false;
+    TickType_t capture_start_tick = 0;
+    data_storage_file_t capture_file = NULL;
+
+    event_start_tick = xTaskGetTickCount() + pdMS_TO_TICKS(3000);
 
     for (;;)
     {
@@ -68,12 +171,59 @@ static void accel_task(void *arg)
             continue;
         }
 
-        for (size_t i = 0; i < read_samples; ++i)
+        if (read_samples == 0U)
         {
-            ESP_LOGI(TAG, "fifo[%u] x: %5d y: %5d z: %5d",
-                     (unsigned int)i, fifo_samples[i].x, fifo_samples[i].y, fifo_samples[i].z);
+            continue;
         }
-        // vTaskDelay(pdMS_TO_TICKS(1000));
+
+        accel_ring_buffer_write(fifo_samples, read_samples);
+
+        if (!event_triggered)
+        {
+            if (accel_start_event_occurred())
+            {
+                esp_err_t ret = data_storage_open_profile(ACCEL_CAPTURE_FILE_NAME, &capture_file);
+                if (ret != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "failed to open capture file '%s': %s", ACCEL_CAPTURE_FILE_NAME, esp_err_to_name(ret));
+                    continue;
+                }
+
+                ret = accel_ring_buffer_flush_to_file(capture_file);
+                if (ret != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "failed to flush pre-event samples: %s", esp_err_to_name(ret));
+                    (void)data_storage_close(capture_file);
+                    capture_file = NULL;
+                    continue;
+                }
+
+                event_triggered = true;
+                capture_start_tick = xTaskGetTickCount();
+                ESP_LOGI(TAG, "event detected, switched to direct file capture");
+            }
+        }
+
+        if (event_triggered)
+        {
+            TickType_t elapsed_ticks = xTaskGetTickCount() - capture_start_tick;
+            if (pdTICKS_TO_MS(elapsed_ticks) >= ACCEL_CAPTURE_DURATION_MS)
+            {
+                (void)data_storage_close(capture_file);
+                capture_file = NULL;
+                event_triggered = false;
+                ESP_LOGI(TAG, "capture duration elapsed, file writing stopped");
+                log_profile(ACCEL_CAPTURE_FILE_NAME);
+                continue;
+            }
+
+            esp_err_t ret = data_storage_write(capture_file, fifo_samples,
+                                               read_samples * sizeof(adxl375_sample_t));
+            if (ret != ESP_OK)
+            {
+                ESP_LOGE(TAG, "failed to write samples: %s", esp_err_to_name(ret));
+            }
+        }
     }
 }
 
@@ -92,6 +242,79 @@ static void accel_gpio_interrupt_init(void)
     ESP_ERROR_CHECK(gpio_isr_handler_add(ADXL375_INT1_PIN, adxl375_int1_isr, NULL));
 }
 
+static esp_err_t log_profile(const char *name)
+{
+    if (!name)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    size_t profile_size = 0;
+    esp_err_t ret = data_storage_get_profile_size(name, &profile_size);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "failed to get profile '%s' size: %s", name, esp_err_to_name(ret));
+        return ret;
+    }
+
+    if (profile_size == 0U)
+    {
+        ESP_LOGI(TAG, "ACCEL_PROFILE name=%s samples=0 (empty)", name);
+        return ESP_OK;
+    }
+
+    size_t sample_count = profile_size / sizeof(adxl375_sample_t);
+    size_t tail_bytes = profile_size % sizeof(adxl375_sample_t);
+    if (tail_bytes != 0U)
+    {
+        ESP_LOGW(TAG, "profile '%s' has %u tail bytes (ignored)", name, (unsigned)tail_bytes);
+    }
+
+    ESP_LOGI(TAG, "ACCEL_PROFILE_BEGIN name=%s bytes=%u samples=%u",
+             name, (unsigned)profile_size, (unsigned)sample_count);
+
+    adxl375_sample_t chunk[ADXL375_FIFO_READ_BUFFER_SAMPLES] = {0};
+    size_t byte_offset = 0U;
+    size_t sample_index = 0U;
+    while (byte_offset < (sample_count * sizeof(adxl375_sample_t)))
+    {
+        size_t to_read = sizeof(chunk);
+        size_t remaining = (sample_count * sizeof(adxl375_sample_t)) - byte_offset;
+        if (to_read > remaining)
+        {
+            to_read = remaining;
+        }
+
+        size_t bytes_read = 0U;
+        ret = data_storage_read_profile(name, byte_offset, chunk, to_read, &bytes_read);
+        if (ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "failed to read profile '%s' at offset %u: %s",
+                     name, (unsigned)byte_offset, esp_err_to_name(ret));
+            return ret;
+        }
+
+        if (bytes_read == 0U)
+        {
+            break;
+        }
+
+        size_t samples_read = bytes_read / sizeof(adxl375_sample_t);
+        for (size_t i = 0; i < samples_read; ++i)
+        {
+            ESP_LOGI(TAG, "idx=%u %d %d %d",
+                     (unsigned)sample_index, chunk[i].x, chunk[i].y, chunk[i].z);
+            sample_index++;
+        }
+
+        byte_offset += bytes_read;
+    }
+
+    ESP_LOGI(TAG, "ACCEL_PROFILE_END name=%s printed_samples=%u",
+             name, (unsigned)sample_index);
+    return ESP_OK;
+}
+
 void accel_init(void)
 {
     adxl375_spi_config_t adxl_cfg = {
@@ -106,14 +329,11 @@ void accel_init(void)
 
     ESP_ERROR_CHECK(adxl375_spi_init(&adxl_cfg, &s_adxl));
     ESP_ERROR_CHECK(adxl375_check_id(s_adxl));
-    ESP_ERROR_CHECK(adxl375_configure(s_adxl, ADXL375_BW_RATE_DEFAULT,
+    ESP_ERROR_CHECK(adxl375_configure(s_adxl, ACCEL_ODR,
                                       ADXL375_POWER_CTL_MEASURE));
     ESP_ERROR_CHECK(adxl375_data_format(s_adxl, false, false, false, false));
 
     ESP_ERROR_CHECK(adxl375_fifo_configure(s_adxl, ADXL375_FIFO_MODE_BYPASS, ADXL375_FIFO_WATERMARK_SAMPLES, false));
-
-
-
 
     uint8_t int_source = 0;
     adxl375_read_int_source(s_adxl, &int_source);
@@ -124,9 +344,6 @@ void accel_init(void)
                 ACCEL_TASK_PRIORITY, &s_accel_task_handle);
 
     ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, 0, 0x00));
-    ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, ADXL375_INT_WATERMARK , 0x00));
+    ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, ADXL375_INT_WATERMARK, 0x00));
     ESP_ERROR_CHECK(adxl375_fifo_configure(s_adxl, ADXL375_FIFO_MODE_STREAM, ADXL375_FIFO_WATERMARK_SAMPLES, false));
-
-
-
 }
