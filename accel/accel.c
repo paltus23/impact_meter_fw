@@ -188,7 +188,7 @@ static void accel_task(void *arg)
 
         static TickType_t print_ticks = 0;
         TickType_t elapsed_ticks = xTaskGetTickCount() - print_ticks;
-        if (pdTICKS_TO_MS(elapsed_ticks) >= pdMS_TO_TICKS(500))
+        if (pdTICKS_TO_MS(elapsed_ticks) >= pdMS_TO_TICKS(5000))
         {
             print_ticks = xTaskGetTickCount();
             ESP_LOGI(TAG, "%d %d %d",

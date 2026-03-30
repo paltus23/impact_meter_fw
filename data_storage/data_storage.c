@@ -165,7 +165,7 @@ esp_err_t data_storage_list_profiles(char (*names)[DATA_STORAGE_MAX_NAME_LEN],
     {
         if (entry->d_type == DT_REG)
         {
-            snprintf(names[count], DATA_STORAGE_MAX_NAME_LEN, "%32s", (char *)entry->d_name);
+            snprintf(names[count], DATA_STORAGE_MAX_NAME_LEN, "%s", (char *)entry->d_name);
             count++;
         }
     }

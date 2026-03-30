@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Accelerometer Visualizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --bg2: #151820;
+    --bg3: #1c2030;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --text2: #8b91a8;
+    --text3: #555d78;
+    --cx: #4f9cf9;
+    --cy: #3ecf8e;
+    --cz: #f97b4f;
+    --ca: #a78bfa;
+    --accent: #4f9cf9;
+    --radius: 10px;
+    --font: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    padding: 1.5rem;
+    font-size: 13px;
+  }
+
+  h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h1::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  /* Parse options bar */
+  .parse-opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    margin-bottom: 12px;
+  }
+  .parse-opts label { color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  .parse-opts select, .parse-opts input[type=text], .parse-opts input[type=number] {
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 4px 8px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .parse-opts select:focus, .parse-opts input:focus { border-color: var(--accent); }
+  .parse-opts .group { display: flex; align-items: center; gap: 6px; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 1.8rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    margin-bottom: 12px;
+    transition: border-color .15s, background .15s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79,156,249,0.05);
+  }
+  .drop-zone .dz-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .drop-zone .dz-sub { font-size: 11px; color: var(--text3); }
+  .drop-zone .sample-btn {
+    margin-top: 12px;
+    background: none;
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    color: var(--accent);
+    font-family: var(--font);
+    font-size: 11px;
+    padding: 5px 14px;
+    cursor: pointer;
+    letter-spacing: .06em;
+    transition: background .12s, border-color .12s;
+  }
+  .drop-zone .sample-btn:hover { background: rgba(79,156,249,0.1); border-color: var(--accent); }
+
+  /* Error */
+  .error-msg { color: #f97b7b; font-size: 12px; margin-bottom: 8px; min-height: 16px; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    margin-bottom: 12px;
+  }
+  .ctrl-group { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .07em; }
+  .ctrl-group input[type=range] {
+    -webkit-appearance: none;
+    width: 110px; height: 4px;
+    background: var(--bg3);
+    border-radius: 2px;
+    outline: none;
+    border: 0.5px solid var(--border2);
+  }
+  .ctrl-group input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 4px var(--accent);
+  }
+  .ctrl-val { font-size: 12px; color: var(--text); min-width: 52px; font-weight: 600; }
+  .pt-count { margin-left: auto; font-size: 11px; color: var(--text3); }
+
+  /* Stats */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    border-top: 2px solid var(--c);
+  }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--text3); margin-bottom: 5px; }
+  .stat-val { font-size: 22px; font-weight: 700; color: var(--c); }
+  .stat-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+  /* Charts grid */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .chart-card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px 10px;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .chart-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .chart-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 600; }
+  .chart-rng { margin-left: auto; font-size: 10px; color: var(--text3); }
+  .chart-wrap { position: relative; height: 170px; }
+
+  @media (max-width: 640px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<h1>Accelerometer Visualizer</h1>
+
+<div class="parse-opts">
+  <div class="group"><label>Format</label>
+    <select id="fmtSel">
+      <option value="text">Text / CSV</option>
+      <option value="binary">Binary (int16 LE)</option>
+    </select>
+  </div>
+  <div class="group"><label>Columns</label>
+    <input id="colOrder" type="text" value="x,y,z" style="width:90px" title="e.g. x,y,z or t,x,y,z" />
+  </div>
+  <div class="group"><label>Separator</label>
+    <select id="sepSel">
+      <option value="auto">auto</option>
+      <option value=",">comma</option>
+      <option value="	">tab</option>
+      <option value=" ">space</option>
+      <option value=";">semicolon</option>
+    </select>
+  </div>
+  <div class="group"><label>Sample rate (Hz)</label>
+    <input id="srInput" type="number" value="100" min="1" max="100000" style="width:72px" />
+  </div>
+  <div class="group"><label>Scale (LSB/unit)</label>
+    <input id="scaleInput" type="number" value="1" min="0.0001" step="any" style="width:72px" title="Divide raw int16 by this value. E.g. 16384 for ±2g MPU-6050" />
+  </div>
+</div>
+
+<div class="drop-zone" id="dropZone">
+  <div class="dz-title">Drop file here or click to browse</div>
+  <div class="dz-sub">Binary (.bin .dat .raw) — int16 LE triplets &nbsp;|&nbsp; Text (.csv .txt) — one row per sample</div>
+  <input type="file" id="fileIn" style="display:none" />
+  <button class="sample-btn" id="loadSample">Load sample data</button>
+</div>
+<div class="error-msg" id="errMsg"></div>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <span>Window</span>
+    <input type="range" id="windowSlider" min="50" max="5000" value="500" step="50" />
+    <span class="ctrl-val" id="windowVal">500 pts</span>
+  </div>
+  <div class="ctrl-group">
+    <span>Start</span>
+    <input type="range" id="startSlider" min="0" max="100" value="0" step="1" />
+    <span class="ctrl-val" id="startPct">0%</span>
+  </div>
+  <span class="pt-count" id="ptCount"></span>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card" style="--c: var(--cx)">
+    <div class="stat-label">X peak</div>
+    <div class="stat-val" id="stX">—</div>
+    <div class="stat-sub" id="stXr">raw int16</div>
+  </div>
+  <div class="stat-card" style="--c: var(--cy)">
+    <div class="stat-label">Y peak</div>
+    <div class="stat-val" id="stY">—</div>
+    <div class="stat-sub" id="stYr">raw int16</div>
+  </div>
+  <div class="stat-card" style="--c: var(--cz)">
+    <div class="stat-label">Z peak</div>
+    <div class="stat-val" id="stZ">—</div>
+    <div class="stat-sub" id="stZr">raw int16</div>
+  </div>
+  <div class="stat-card" style="--c: var(--ca)">
+    <div class="stat-label">Amplitude peak</div>
+    <div class="stat-val" id="stA">—</div>
+    <div class="stat-sub" id="stAr">|v| = √(x²+y²+z²)</div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-dot" style="background:var(--cx);box-shadow:0 0 5px var(--cx)"></div>
+      <span class="chart-title" style="color:var(--cx)">X axis</span>
+      <span class="chart-rng" id="rngX"></span>
+    </div>
+    <div class="chart-wrap"><canvas id="cX"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-dot" style="background:var(--cy);box-shadow:0 0 5px var(--cy)"></div>
+      <span class="chart-title" style="color:var(--cy)">Y axis</span>
+      <span class="chart-rng" id="rngY"></span>
+    </div>
+    <div class="chart-wrap"><canvas id="cY"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-dot" style="background:var(--cz);box-shadow:0 0 5px var(--cz)"></div>
+      <span class="chart-title" style="color:var(--cz)">Z axis</span>
+      <span class="chart-rng" id="rngZ"></span>
+    </div>
+    <div class="chart-wrap"><canvas id="cZ"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-dot" style="background:var(--ca);box-shadow:0 0 5px var(--ca)"></div>
+      <span class="chart-title" style="color:var(--ca)">Amplitude |v|</span>
+      <span class="chart-rng" id="rngA"></span>
+    </div>
+    <div class="chart-wrap"><canvas id="cA"></canvas></div>
+  </div>
+</div>
+
+<script>
+let rawX=[], rawY=[], rawZ=[];
+let charts={};
+
+const COLORS = { X:'#4f9cf9', Y:'#3ecf8e', Z:'#f97b4f', A:'#a78bfa' };
+
+const gridColor = 'rgba(255,255,255,0.06)';
+const tickColor = '#555d78';
+
+function buildChart(id, color) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ data: [], borderColor: color, borderWidth: 1.3, pointRadius: 0, fill: false, tension: 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#1c2030', titleColor: color, bodyColor: '#e8eaf0',
+        borderColor: color, borderWidth: 0.5, padding: 8,
+        callbacks: { title: items => 't = '+items[0].label+'s', label: ctx => ctx.parsed.y.toFixed(4) }
+      }},
+      scales: {
+        x: { ticks: { maxTicksLimit: 6, font:{size:10,family:"'IBM Plex Mono',monospace"}, color: tickColor }, grid: { color: gridColor } },
+        y: { ticks: { maxTicksLimit: 5, font:{size:10,family:"'IBM Plex Mono',monospace"}, color: tickColor }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
+function initCharts() {
+  Object.values(charts).forEach(c=>c.destroy()); charts={};
+  charts.X = buildChart('cX', COLORS.X);
+  charts.Y = buildChart('cY', COLORS.Y);
+  charts.Z = buildChart('cZ', COLORS.Z);
+  charts.A = buildChart('cA', COLORS.A);
+}
+initCharts();
+
+function updateCharts() {
+  if (!rawX.length) return;
+  const sr = parseFloat(document.getElementById('srInput').value)||100;
+  const scale = parseFloat(document.getElementById('scaleInput').value)||1;
+  const winSize = parseInt(document.getElementById('windowSlider').value);
+  const startPct = parseInt(document.getElementById('startSlider').value)/100;
+  const total = rawX.length;
+  const startIdx = Math.floor(startPct*Math.max(0,total-winSize));
+  const endIdx = Math.min(total, startIdx+winSize);
+
+  const xs = rawX.slice(startIdx,endIdx).map(v=>v/scale);
+  const ys = rawY.slice(startIdx,endIdx).map(v=>v/scale);
+  const zs = rawZ.slice(startIdx,endIdx).map(v=>v/scale);
+  const as = xs.map((x,i)=>Math.sqrt(x*x+ys[i]*ys[i]+zs[i]*zs[i]));
+  const labels = xs.map((_,i)=>((startIdx+i)/sr).toFixed(3));
+
+  function setData(chart, data, rngEl) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.update('none');
+    if (rngEl && data.length) {
+      const mn = Math.min(...data), mx = Math.max(...data);
+      rngEl.textContent = mn.toFixed(2)+' … '+mx.toFixed(2);
+    }
+  }
+  setData(charts.X, xs, document.getElementById('rngX'));
+  setData(charts.Y, ys, document.getElementById('rngY'));
+  setData(charts.Z, zs, document.getElementById('rngZ'));
+  setData(charts.A, as, document.getElementById('rngA'));
+
+  const peakRaw = arr => Math.max(...arr.map(Math.abs));
+  const peakScaled = arr => (peakRaw(arr)/scale).toFixed(4);
+  document.getElementById('stX').textContent = peakScaled(rawX);
+  document.getElementById('stY').textContent = peakScaled(rawY);
+  document.getElementById('stZ').textContent = peakScaled(rawZ);
+  const allA = rawX.map((x,i)=>{
+    const sx=x/scale, sy=rawY[i]/scale, sz=rawZ[i]/scale;
+    return Math.sqrt(sx*sx+sy*sy+sz*sz);
+  });
+  document.getElementById('stA').textContent = Math.max(...allA).toFixed(4);
+  const u = scale===1?'raw int16':'units';
+  ['stXr','stYr','stZr'].forEach(id=>document.getElementById(id).textContent=u);
+  document.getElementById('ptCount').textContent = total.toLocaleString()+' samples total';
+}
+
+function setData(x,y,z) {
+  rawX=x; rawY=y; rawZ=z;
+  const n=x.length;
+  document.getElementById('windowSlider').max = Math.min(5000,n);
+  document.getElementById('windowSlider').value = Math.min(500,n);
+  document.getElementById('windowVal').textContent = Math.min(500,n)+' pts';
+  document.getElementById('startSlider').value = 0;
+  document.getElementById('startPct').textContent = '0%';
+  updateCharts();
+}
+
+function parseText(text) {
+  const sep = document.getElementById('sepSel').value;
+  const colDef = document.getElementById('colOrder').value.split(',').map(s=>s.trim().toLowerCase());
+  const xi=colDef.indexOf('x'), yi=colDef.indexOf('y'), zi=colDef.indexOf('z');
+  if(xi<0||yi<0||zi<0) throw new Error('Column spec must include x, y, z');
+  const lines = text.split(/\r?\n/).filter(l=>l.trim()&&!l.trim().startsWith('#'));
+  const X=[],Y=[],Z=[];
+  for(const line of lines){
+    let parts = sep==='auto' ? line.trim().split(/[\s,;]+/) : line.trim().split(sep);
+    const x=parseFloat(parts[xi]), y=parseFloat(parts[yi]), z=parseFloat(parts[zi]);
+    if(isNaN(x)||isNaN(y)||isNaN(z)) continue;
+    X.push(x); Y.push(y); Z.push(z);
+  }
+  if(!X.length) throw new Error('No valid rows found. Check column order and separator.');
+  return [X,Y,Z];
+}
+
+function parseBinary(buf) {
+  // int16 little-endian triplets: X,Y,Z,X,Y,Z,...  (6 bytes per sample)
+  const view = new DataView(buf);
+  const n = Math.floor(buf.byteLength / 6);
+  if(!n) throw new Error('File too small for int16 triplets (need ≥6 bytes).');
+  const X=[],Y=[],Z=[];
+  for(let i=0;i<n;i++){
+    X.push(view.getInt16(i*6,   true));
+    Y.push(view.getInt16(i*6+2, true));
+    Z.push(view.getInt16(i*6+4, true));
+  }
+  return [X,Y,Z];
+}
+
+function loadFile(file) {
+  document.getElementById('errMsg').textContent='';
+  const fmt = document.getElementById('fmtSel').value;
+  const reader = new FileReader();
+  reader.onerror = ()=>{ document.getElementById('errMsg').textContent='Could not read file.'; };
+  reader.onload = e=>{
+    try {
+      let res;
+      if(fmt==='binary') res=parseBinary(e.target.result);
+      else res=parseText(e.target.result);
+      setData(...res);
+    } catch(err) {
+      document.getElementById('errMsg').textContent=err.message;
+    }
+  };
+  if(fmt==='binary') reader.readAsArrayBuffer(file);
+  else reader.readAsText(file);
+}
+
+// Events
+document.getElementById('dropZone').addEventListener('click', e=>{
+  if(e.target.id==='loadSample') return;
+  document.getElementById('fileIn').click();
+});
+document.getElementById('fileIn').addEventListener('change', e=>{
+  if(e.target.files[0]) loadFile(e.target.files[0]);
+});
+const dz=document.getElementById('dropZone');
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', ()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+document.getElementById('windowSlider').addEventListener('input', e=>{
+  document.getElementById('windowVal').textContent=e.target.value+' pts'; updateCharts();
+});
+document.getElementById('startSlider').addEventListener('input', e=>{
+  document.getElementById('startPct').textContent=e.target.value+'%'; updateCharts();
+});
+document.getElementById('srInput').addEventListener('change', updateCharts);
+document.getElementById('scaleInput').addEventListener('change', updateCharts);
+document.getElementById('fmtSel').addEventListener('change', ()=>document.getElementById('errMsg').textContent='');
+
+document.getElementById('loadSample').addEventListener('click', e=>{
+  e.stopPropagation();
+  const n=2000, X=[],Y=[],Z=[];
+  for(let i=0;i<n;i++){
+    const t=i/100;
+    X.push(Math.round((Math.sin(2*Math.PI*1.3*t)*8000 + (Math.random()-.5)*1500)));
+    Y.push(Math.round((Math.cos(2*Math.PI*0.7*t)*6000 + Math.sin(2*Math.PI*3*t)*2000 + (Math.random()-.5)*1000)));
+    Z.push(Math.round((16384 + Math.sin(2*Math.PI*0.4*t)*3000 + (Math.random()-.5)*800)));
+  }
+  setData(X,Y,Z);
+  document.getElementById('errMsg').textContent='';
+});
+</script>
+</body>
+</html>
