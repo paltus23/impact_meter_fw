@@ -19,3 +19,5 @@ set(EXTRA_COMPONENT_DIRS
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(impact_meter)
+
+idf_build_set_property(COMPILE_OPTIONS "-Wno-format-truncation" APPEND)
