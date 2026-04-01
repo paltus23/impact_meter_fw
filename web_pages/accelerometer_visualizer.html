@@ -406,6 +406,101 @@
     .charts-grid { grid-template-columns: 1fr; }
     .stats-row { grid-template-columns: repeat(2, 1fr); }
   }
+
+  /* ── Active profile bar ──────────────────── */
+  .active-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 8px 16px;
+  }
+  .ap-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+  .ap-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .ap-name.ap-none { color: var(--text3); font-weight: 400; font-style: italic; }
+  .ap-source {
+    font-size: 10px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+
+  /* ── Auto-poll checkbox ──────────────────── */
+  .auto-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text3);
+    transition: color .15s;
+  }
+  .auto-toggle:hover { color: var(--text2); }
+  .auto-toggle input[type=checkbox] { display: none; }
+  .auto-toggle .auto-track {
+    position: relative;
+    width: 28px; height: 15px;
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: 8px;
+    flex-shrink: 0;
+    transition: background .2s, border-color .2s;
+  }
+  .auto-toggle .auto-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--text3);
+    transition: transform .2s, background .2s;
+  }
+  .auto-toggle input:checked ~ .auto-track {
+    background: rgba(62,207,142,0.2);
+    border-color: rgba(62,207,142,0.55);
+  }
+  .auto-toggle input:checked ~ .auto-track .auto-thumb {
+    transform: translateX(13px);
+    background: var(--cy);
+    box-shadow: 0 0 5px rgba(62,207,142,0.6);
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+  .auto-toggle input:checked ~ .auto-label { color: var(--cy); }
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(62,207,142,0.7); }
+    50% { box-shadow: 0 0 0 4px rgba(62,207,142,0); }
+  }
+
+  /* ── New file badge ──────────────────────── */
+  .fi-new {
+    font-size: 9px;
+    background: rgba(62,207,142,0.15);
+    border: 0.5px solid rgba(62,207,142,0.4);
+    color: var(--cy);
+    border-radius: 3px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
@@ -440,6 +535,11 @@
       <div class="panel-header">
         <span>Capture files</span>
         <div class="ph-actions">
+          <label class="auto-toggle" title="Auto-detect and load new files">
+            <input type="checkbox" id="chkAutoLoad" />
+            <span class="auto-track"><span class="auto-thumb"></span></span>
+            <span class="auto-label">Auto</span>
+          </label>
           <button class="btn btn-accent" id="btnRefresh" title="Refresh file list">↻ Refresh</button>
           <button class="btn btn-danger" id="btnDeleteAll" title="Delete all files">✕ All</button>
         </div>
@@ -528,6 +628,13 @@
     </div>
     <div class="error-msg" id="errMsg"></div>
     <div class="header-info" id="headerInfo"></div>
+
+    <!-- Active profile bar -->
+    <div class="active-profile">
+      <span class="ap-label">Active profile</span>
+      <span class="ap-name ap-none" id="activeProfileName">— no file loaded —</span>
+      <span class="ap-source" id="activeProfileSource"></span>
+    </div>
 
     <!-- Chart controls -->
     <div class="controls">
@@ -783,6 +890,9 @@ function loadFile(file) {
       if(fmt==='binary') res=parseBinary(e.target.result);
       else res=parseText(e.target.result);
       setData(...res);
+      activeFile = null;
+      document.querySelectorAll('.file-item').forEach(it => it.classList.remove('active'));
+      setActiveProfileName(file.name, 'local');
     } catch(err) { setErr(err.message); }
   };
   if(fmt==='binary') reader.readAsArrayBuffer(file);
@@ -790,18 +900,44 @@ function loadFile(file) {
 }
 
 /* ═══════════════════════════════════════════
+   Active profile name badge
+══════════════════════════════════════════ */
+function setActiveProfileName(name, source) {
+  const nameEl = document.getElementById('activeProfileName');
+  const srcEl  = document.getElementById('activeProfileSource');
+  if (name) {
+    nameEl.textContent = name;
+    nameEl.classList.remove('ap-none');
+    srcEl.textContent = source || '';
+  } else {
+    nameEl.textContent = '— no file loaded —';
+    nameEl.classList.add('ap-none');
+    srcEl.textContent = '';
+  }
+}
+
+/* ═══════════════════════════════════════════
    File list
 ══════════════════════════════════════════ */
+let knownFiles = new Set();
+let newFileBadges = new Set();
+
+function sortedDesc(names) {
+  return names.slice().sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
 function renderFileList(names) {
   const list = document.getElementById('fileList');
   if (!names.length) {
     list.innerHTML = '<div class="file-empty">No capture files on device</div>';
     return;
   }
-  list.innerHTML = names.map(name => `
+  const sorted = sortedDesc(names);
+  list.innerHTML = sorted.map(name => `
     <div class="file-item${name===activeFile?' active':''}" data-name="${name}">
       <span class="fi-icon">▶</span>
       <span class="fi-name" title="${name}">${name}</span>
+      ${newFileBadges.has(name) ? '<span class="fi-new">new</span>' : ''}
       <button class="fi-dl" data-name="${name}" title="Download ${name}">⬇</button>
       <button class="fi-del" data-name="${name}" title="Delete ${name}">✕</button>
     </div>
@@ -832,14 +968,13 @@ function renderFileList(names) {
 }
 
 async function refreshFileList() {
-  const status = document.getElementById('fileListStatus');
   const list = document.getElementById('fileList');
-  status && (status.textContent = 'Loading…');
   list.innerHTML = '<div class="file-loading">Loading…</div>';
   try {
     const res = await fetch(baseUrl() + '/api/files');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const names = await res.json();
+    knownFiles = new Set(names);
     renderFileList(names);
   } catch(e) {
     list.innerHTML = `<div class="file-empty" style="color:var(--danger)">Cannot reach device<br><span style="font-size:10px;opacity:.7">${e.message}</span></div>`;
@@ -849,7 +984,6 @@ async function refreshFileList() {
 async function loadFileFromDevice(name) {
   setErr('');
   activeFile = name;
-  // Re-render to highlight
   const items = document.querySelectorAll('.file-item');
   items.forEach(it => it.classList.toggle('active', it.dataset.name === name));
 
@@ -859,10 +993,60 @@ async function loadFileFromDevice(name) {
     const buf = await res.arrayBuffer();
     const parsed = parseBinary(buf);
     setData(...parsed);
+    setActiveProfileName(name, 'device');
   } catch(e) {
     setErr('Failed to load ' + name + ': ' + e.message);
   }
 }
+
+/* ═══════════════════════════════════════════
+   Auto-poll for new files
+══════════════════════════════════════════ */
+let autoPollTimer = null;
+const AUTO_POLL_INTERVAL_MS = 3000;
+
+function isAutoPollActive() { return autoPollTimer !== null; }
+
+async function autoPollTick() {
+  try {
+    const res = await fetch(baseUrl() + '/api/files');
+    if (!res.ok) return;
+    const names = await res.json();
+    const incoming = new Set(names);
+    const appeared = names.filter(n => !knownFiles.has(n));
+
+    if (appeared.length > 0) {
+      appeared.forEach(n => newFileBadges.add(n));
+      knownFiles = incoming;
+      renderFileList(names);
+
+      const toLoad = sortedDesc(appeared)[0];
+      await loadFileFromDevice(toLoad);
+
+      setTimeout(() => {
+        appeared.forEach(n => newFileBadges.delete(n));
+        renderFileList([...knownFiles]);
+      }, 8000);
+    } else {
+      knownFiles = incoming;
+    }
+  } catch(_) { /* device unreachable — keep polling */ }
+}
+
+function startAutoPoll() {
+  if (autoPollTimer) return;
+  autoPollTimer = setInterval(autoPollTick, AUTO_POLL_INTERVAL_MS);
+}
+
+function stopAutoPoll() {
+  if (!autoPollTimer) return;
+  clearInterval(autoPollTimer);
+  autoPollTimer = null;
+}
+
+document.getElementById('chkAutoLoad').addEventListener('change', e => {
+  e.target.checked ? startAutoPoll() : stopAutoPoll();
+});
 
 /* ═══════════════════════════════════════════
    Delete with confirm modal
@@ -1019,6 +1203,9 @@ document.getElementById('loadSample').addEventListener('click', e=>{
   setData(X,Y,Z);
   setErr('');
   document.getElementById('headerInfo').style.display = 'none';
+  activeFile = null;
+  document.querySelectorAll('.file-item').forEach(it => it.classList.remove('active'));
+  setActiveProfileName('sample data', 'generated');
 });
 
 /* ═══════════════════════════════════════════
