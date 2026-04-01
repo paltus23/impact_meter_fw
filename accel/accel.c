@@ -1,16 +1,21 @@
 #include "accel.h"
 
 #include "adxl375.h"
+#include "profile_header.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "driver/gpio.h"
-#include "../data_storage/data_storage.h"
+#include "data_storage.h"
+#include "settings.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 
 #define ACCEL_TASK_STACK_WORDS 4096
 #define ACCEL_TASK_PRIORITY 5
@@ -40,26 +45,72 @@
 #define ACCEL_ACT_THRESHOLD_LSB 6U
 #define ACCEL_ACT_CTL (ADXL375_ACT_CTL_AC | ADXL375_ACT_CTL_AXES_X | ADXL375_ACT_CTL_AXES_Y | ADXL375_ACT_CTL_AXES_Z)
 
-#define ACCEL_CAPTURE_FILE_NAME "impact_capture.bin"
-#define ACCEL_PRECAPTURE_DURATION_MS 200
-#define ACCEL_RING_BUFFER_SAMPLES ((ACCEL_PRECAPTURE_DURATION_MS * 100) / 1000)
-#define ACCEL_CAPTURE_DURATION_MS 1000
+/* Ring buffer sizing: upper bound is taken from settings so both layers agree.
+ * SETTINGS_MAX_PRECAPTURE_MS=5000 → 500 samples × 6 B = 3 kB of static storage. */
+#define ACCEL_RING_BUFFER_SAMPLE_RATE   100
+#define ACCEL_RING_BUFFER_MAX_SAMPLES   ((SETTINGS_MAX_PRECAPTURE_MS * ACCEL_RING_BUFFER_SAMPLE_RATE) / 1000)
+
+#define ACCEL_CAPTURE_FILE_NAME_FMT     "capture_%ld.bin"
+#define ACCEL_CAPTURE_FILE_NAME_LEN     32
 
 static adxl375_handle_t s_adxl;
 static TaskHandle_t s_accel_task_handle;
 
-char TAG[] = "accel";
+static const char *TAG = "accel";
+
+/* ------------------------------------------------------------------ runtime settings */
+
+static int32_t s_profile_num   = SETTINGS_DEFAULT_PROFILE_NUM;
+static int32_t s_precapture_ms = SETTINGS_DEFAULT_PRECAPTURE_MS;
+static int32_t s_capture_ms    = SETTINGS_DEFAULT_CAPTURE_MS;
+static char    s_capture_file_name[ACCEL_CAPTURE_FILE_NAME_LEN];
+
+/* ------------------------------------------------------------------ ring buffer */
 
 typedef struct
 {
-    adxl375_sample_t samples[ACCEL_RING_BUFFER_SAMPLES];
+    adxl375_sample_t samples[ACCEL_RING_BUFFER_MAX_SAMPLES];
     size_t head;
     size_t count;
+    size_t capacity; /* effective window in samples, <= ACCEL_RING_BUFFER_MAX_SAMPLES */
 } accel_ring_buffer_t;
 
 static accel_ring_buffer_t s_pre_event_buffer;
 
 static esp_err_t log_profile(const char *name);
+static esp_err_t accel_write_profile_header(data_storage_file_t file);
+
+/* ------------------------------------------------------------------ settings helpers */
+
+static void accel_load_settings(void)
+{
+    settings_get_profile_num(&s_profile_num);
+    settings_get_precapture_ms(&s_precapture_ms);
+    settings_get_capture_ms(&s_capture_ms);
+
+    size_t new_cap = (size_t)((s_precapture_ms * ACCEL_RING_BUFFER_SAMPLE_RATE) / 1000);
+    if (new_cap == 0)
+    {
+        new_cap = 1;
+    }
+    if (new_cap > ACCEL_RING_BUFFER_MAX_SAMPLES)
+    {
+        new_cap = ACCEL_RING_BUFFER_MAX_SAMPLES;
+    }
+
+    s_pre_event_buffer.capacity = new_cap;
+    s_pre_event_buffer.head = 0;
+    s_pre_event_buffer.count = 0;
+
+    snprintf(s_capture_file_name, sizeof(s_capture_file_name),
+             ACCEL_CAPTURE_FILE_NAME_FMT, (long)s_profile_num);
+
+    ESP_LOGI(TAG, "settings: profile=%ld precap=%ld ms cap=%ld ms file='%s'",
+             (long)s_profile_num, (long)s_precapture_ms,
+             (long)s_capture_ms, s_capture_file_name);
+}
+
+/* ------------------------------------------------------------------ ring buffer ops */
 
 static void accel_ring_buffer_write(const adxl375_sample_t *samples, size_t sample_count)
 {
@@ -71,8 +122,8 @@ static void accel_ring_buffer_write(const adxl375_sample_t *samples, size_t samp
     for (size_t i = 0; i < sample_count; ++i)
     {
         s_pre_event_buffer.samples[s_pre_event_buffer.head] = samples[i];
-        s_pre_event_buffer.head = (s_pre_event_buffer.head + 1U) % ACCEL_RING_BUFFER_SAMPLES;
-        if (s_pre_event_buffer.count < ACCEL_RING_BUFFER_SAMPLES)
+        s_pre_event_buffer.head = (s_pre_event_buffer.head + 1U) % s_pre_event_buffer.capacity;
+        if (s_pre_event_buffer.count < s_pre_event_buffer.capacity)
         {
             s_pre_event_buffer.count++;
         }
@@ -91,10 +142,13 @@ static esp_err_t accel_ring_buffer_flush_to_file(data_storage_file_t file)
         return ESP_OK;
     }
 
-    const size_t start = (s_pre_event_buffer.head + ACCEL_RING_BUFFER_SAMPLES - s_pre_event_buffer.count) % ACCEL_RING_BUFFER_SAMPLES;
+    const size_t cap   = s_pre_event_buffer.capacity;
+    const size_t start = (s_pre_event_buffer.head + cap - s_pre_event_buffer.count) % cap;
 
-    const size_t first_part = ACCEL_RING_BUFFER_SAMPLES - start;
-    const size_t first_count = (s_pre_event_buffer.count < first_part) ? s_pre_event_buffer.count : first_part;
+    const size_t first_part  = cap - start;
+    const size_t first_count = (s_pre_event_buffer.count < first_part)
+                                   ? s_pre_event_buffer.count
+                                   : first_part;
     if (first_count > 0U)
     {
         esp_err_t ret = data_storage_write(file,
@@ -121,6 +175,7 @@ static esp_err_t accel_ring_buffer_flush_to_file(data_storage_file_t file)
     s_pre_event_buffer.count = 0U;
     return ESP_OK;
 }
+
 TickType_t event_start_tick = 0;
 static bool accel_start_event_occurred(void)
 {
@@ -155,12 +210,21 @@ static void accel_task(void *arg)
     bool event_triggered = false;
     TickType_t capture_start_tick = 0;
     data_storage_file_t capture_file = NULL;
+    size_t capture_data_bytes = 0;
 
     event_start_tick = xTaskGetTickCount() + pdMS_TO_TICKS(3000);
 
     for (;;)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        /* Reload settings if the HTTP layer pushed a config-changed notification. */
+        EventBits_t cfg_bits = xEventGroupGetBits(settings_get_event_group());
+        if (cfg_bits & SETTINGS_EVENT_CONFIG_CHANGED)
+        {
+            xEventGroupClearBits(settings_get_event_group(), SETTINGS_EVENT_CONFIG_CHANGED);
+            accel_load_settings();
+        }
 
         uint8_t int_source = 0;
         if (adxl375_read_int_source(s_adxl, &int_source) != ESP_OK)
@@ -188,7 +252,7 @@ static void accel_task(void *arg)
 
         static TickType_t print_ticks = 0;
         TickType_t elapsed_ticks = xTaskGetTickCount() - print_ticks;
-        if (pdTICKS_TO_MS(elapsed_ticks) >= pdMS_TO_TICKS(5000))
+        if (elapsed_ticks >= pdMS_TO_TICKS(5000))
         {
             print_ticks = xTaskGetTickCount();
             ESP_LOGI(TAG, "%d %d %d",
@@ -200,13 +264,24 @@ static void accel_task(void *arg)
         {
             if ((int_source & ADXL375_INT_SINGLE_SHOCK) || (int_source & ADXL375_INT_ACTIVITY))
             {
-                esp_err_t ret = data_storage_open_profile(ACCEL_CAPTURE_FILE_NAME, &capture_file);
+                esp_err_t ret = data_storage_open_profile(s_capture_file_name, &capture_file);
                 if (ret != ESP_OK)
                 {
-                    ESP_LOGE(TAG, "failed to open capture file '%s': %s", ACCEL_CAPTURE_FILE_NAME, esp_err_to_name(ret));
+                    ESP_LOGE(TAG, "failed to open capture file '%s': %s",
+                             s_capture_file_name, esp_err_to_name(ret));
                     continue;
                 }
 
+                ret = accel_write_profile_header(capture_file);
+                if (ret != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "failed to write profile header: %s", esp_err_to_name(ret));
+                    (void)data_storage_close(capture_file);
+                    capture_file = NULL;
+                    continue;
+                }
+
+                size_t pre_event_bytes = s_pre_event_buffer.count * sizeof(adxl375_sample_t);
                 ret = accel_ring_buffer_flush_to_file(capture_file);
                 if (ret != ESP_OK)
                 {
@@ -216,30 +291,49 @@ static void accel_task(void *arg)
                     continue;
                 }
 
+                capture_data_bytes = pre_event_bytes;
                 event_triggered = true;
                 capture_start_tick = xTaskGetTickCount();
-                ESP_LOGI(TAG, "event detected, switched to direct file capture");
+                ESP_LOGI(TAG, "event detected, capturing to '%s'", s_capture_file_name);
             }
         }
 
         if (event_triggered)
         {
-            TickType_t elapsed_ticks = xTaskGetTickCount() - capture_start_tick;
-            if (pdTICKS_TO_MS(elapsed_ticks) >= ACCEL_CAPTURE_DURATION_MS)
+            elapsed_ticks = xTaskGetTickCount() - capture_start_tick;
+            if (pdTICKS_TO_MS(elapsed_ticks) >= (uint32_t)s_capture_ms)
             {
+                uint32_t ds = (uint32_t)capture_data_bytes;
+                esp_err_t patch_ret = data_storage_pwrite(capture_file,
+                                                          offsetof(profile_header_t, data_size),
+                                                          &ds, sizeof(ds));
+                if (patch_ret != ESP_OK)
+                {
+                    ESP_LOGW(TAG, "failed to patch header data_size: %s",
+                             esp_err_to_name(patch_ret));
+                }
                 (void)data_storage_close(capture_file);
                 capture_file = NULL;
+                capture_data_bytes = 0;
                 event_triggered = false;
-                ESP_LOGI(TAG, "capture duration elapsed, file writing stopped");
-                log_profile(ACCEL_CAPTURE_FILE_NAME);
+                ESP_LOGI(TAG, "capture complete ('%s', data=%lu B)", s_capture_file_name, (unsigned long)ds);
+                // log_profile(s_capture_file_name);
+                s_profile_num++;
+                settings_set_profile_num(s_profile_num);
+                snprintf(s_capture_file_name, sizeof(s_capture_file_name),
+                ACCEL_CAPTURE_FILE_NAME_FMT, (long)s_profile_num);
                 continue;
             }
 
-            esp_err_t ret = data_storage_write(capture_file, fifo_samples,
-                                               read_samples * sizeof(adxl375_sample_t));
+            size_t chunk_bytes = read_samples * sizeof(adxl375_sample_t);
+            esp_err_t ret = data_storage_write(capture_file, fifo_samples, chunk_bytes);
             if (ret != ESP_OK)
             {
                 ESP_LOGE(TAG, "failed to write samples: %s", esp_err_to_name(ret));
+            }
+            else
+            {
+                capture_data_bytes += chunk_bytes;
             }
         }
     }
@@ -333,8 +427,22 @@ static esp_err_t log_profile(const char *name)
     return ESP_OK;
 }
 
+static esp_err_t accel_write_profile_header(data_storage_file_t file)
+{
+    profile_header_t hdr = {
+        .magic       = PROFILE_HEADER_MAGIC,
+        .version     = PROFILE_HEADER_VERSION,
+        .header_size = (uint16_t)sizeof(profile_header_t),
+        .odr_hz      = adxl375_odr_to_hz(ACCEL_ODR),
+        .data_size   = 0U,
+    };
+    return data_storage_write(file, &hdr, sizeof(hdr));
+}
+
 void accel_init(void)
 {
+    accel_load_settings();
+
     adxl375_spi_config_t adxl_cfg = {
         .host = ADXL375_HOST,
         .mosi_io = ADXL375_PIN_MOSI,

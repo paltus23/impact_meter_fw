@@ -117,6 +117,19 @@
   /* Error */
   .error-msg { color: #f97b7b; font-size: 12px; margin-bottom: 8px; min-height: 16px; }
 
+  /* Profile header info banner */
+  .header-info {
+    display: none;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(79,156,249,0.07);
+    border: 0.5px solid rgba(79,156,249,0.25);
+    border-radius: 6px;
+    padding: 5px 12px;
+    margin-bottom: 10px;
+    letter-spacing: .04em;
+  }
+
   /* Controls */
   .controls {
     display: flex;
@@ -234,6 +247,7 @@
   <button class="sample-btn" id="loadSample">Load sample data</button>
 </div>
 <div class="error-msg" id="errMsg"></div>
+<div class="header-info" id="headerInfo"></div>
 
 <div class="controls">
   <div class="ctrl-group">
@@ -418,16 +432,57 @@ function parseText(text) {
   return [X,Y,Z];
 }
 
+const PROFILE_HEADER_MAGIC = 0x4C454341; // 'A','C','E','L' little-endian
+
+/**
+ * Try to parse a profile_header_t from buf.
+ * Returns { headerSize, odrHz, dataSize } on success, or null if no valid header.
+ */
+function tryReadProfileHeader(view) {
+  if (view.byteLength < 15) return null;          // minimum header size
+  const magic = view.getUint32(0, true);
+  if (magic !== PROFILE_HEADER_MAGIC) return null;
+  const version    = view.getUint8(4);             // eslint-disable-line no-unused-vars
+  const headerSize = view.getUint16(5, true);
+  const odrHz      = view.getFloat32(7, true);
+  const dataSize   = headerSize >= 15 ? view.getUint32(11, true) : 0;
+  return { headerSize, odrHz, dataSize };
+}
+
 function parseBinary(buf) {
   // int16 little-endian triplets: X,Y,Z,X,Y,Z,...  (6 bytes per sample)
   const view = new DataView(buf);
-  const n = Math.floor(buf.byteLength / 6);
-  if(!n) throw new Error('File too small for int16 triplets (need ≥6 bytes).');
+
+  /* Detect optional profile header. */
+  let sampleOffset = 0;
+  const header = tryReadProfileHeader(view);
+  if (header) {
+    sampleOffset = header.headerSize;
+    /* Auto-populate the sample-rate input from the header ODR. */
+    const srEl = document.getElementById('srInput');
+    if (srEl) srEl.value = header.odrHz;
+    /* Show header info banner. */
+    const infoEl = document.getElementById('headerInfo');
+    if (infoEl) {
+      infoEl.textContent =
+        `Profile header v1 · ODR ${header.odrHz} Hz · ` +
+        `data ${header.dataSize ? header.dataSize.toLocaleString() + ' B' : '(unknown)'}`;
+      infoEl.style.display = 'block';
+    }
+  } else {
+    const infoEl = document.getElementById('headerInfo');
+    if (infoEl) infoEl.style.display = 'none';
+  }
+
+  const payloadBytes = buf.byteLength - sampleOffset;
+  const n = Math.floor(payloadBytes / 6);
+  if (!n) throw new Error('File too small for int16 triplets (need ≥6 bytes of sample data).');
   const X=[],Y=[],Z=[];
   for(let i=0;i<n;i++){
-    X.push(view.getInt16(i*6,   true));
-    Y.push(view.getInt16(i*6+2, true));
-    Z.push(view.getInt16(i*6+4, true));
+    const base = sampleOffset + i*6;
+    X.push(view.getInt16(base,   true));
+    Y.push(view.getInt16(base+2, true));
+    Z.push(view.getInt16(base+4, true));
   }
   return [X,Y,Z];
 }

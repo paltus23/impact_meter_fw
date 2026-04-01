@@ -47,6 +47,9 @@ extern "C"
         ADXL375_ODR_3200_HZ = 0xFU,
     } adxl375_odr_t;
 
+    /** Return the output data rate in Hz for the given ODR setting (Table 6). */
+    float adxl375_odr_to_hz(adxl375_odr_t odr);
+
 /** Reset / default BW_RATE value (100 Hz ODR, normal power) — Table 15. */
 #define ADXL375_BW_RATE_DEFAULT ((uint8_t)ADXL375_ODR_100_HZ)
 

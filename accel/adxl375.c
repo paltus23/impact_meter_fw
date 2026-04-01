@@ -277,6 +277,30 @@ esp_err_t adxl375_read_fifo_samples(adxl375_handle_t handle, adxl375_sample_t *o
 //     return ESP_OK;
 // }
 
+float adxl375_odr_to_hz(adxl375_odr_t odr)
+{
+    switch (odr)
+    {
+        case ADXL375_ODR_0_10_HZ:  return 0.10f;
+        case ADXL375_ODR_0_20_HZ:  return 0.20f;
+        case ADXL375_ODR_0_39_HZ:  return 0.39f;
+        case ADXL375_ODR_0_78_HZ:  return 0.78f;
+        case ADXL375_ODR_1_56_HZ:  return 1.56f;
+        case ADXL375_ODR_3_13_HZ:  return 3.13f;
+        case ADXL375_ODR_6_25_HZ:  return 6.25f;
+        case ADXL375_ODR_12_5_HZ:  return 12.5f;
+        case ADXL375_ODR_25_HZ:    return 25.0f;
+        case ADXL375_ODR_50_HZ:    return 50.0f;
+        case ADXL375_ODR_100_HZ:   return 100.0f;
+        case ADXL375_ODR_200_HZ:   return 200.0f;
+        case ADXL375_ODR_400_HZ:   return 400.0f;
+        case ADXL375_ODR_800_HZ:   return 800.0f;
+        case ADXL375_ODR_1600_HZ:  return 1600.0f;
+        case ADXL375_ODR_3200_HZ:  return 3200.0f;
+        default:                   return 0.0f;
+    }
+}
+
 esp_err_t adxl375_spi_init(const adxl375_spi_config_t *cfg, adxl375_handle_t *out_handle)
 {
     ESP_RETURN_ON_FALSE(cfg && out_handle, ESP_ERR_INVALID_ARG, TAG, "bad arg");

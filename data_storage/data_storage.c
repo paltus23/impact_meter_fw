@@ -253,6 +253,46 @@ esp_err_t data_storage_read_profile(const char *name, size_t offset,
     return ESP_OK;
 }
 
+esp_err_t data_storage_pwrite(data_storage_file_t handle, size_t offset,
+                               const void *data, size_t len)
+{
+    if (!handle || !data)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (len == 0)
+    {
+        return ESP_OK;
+    }
+    if (offset + len > handle->total_bytes)
+    {
+        ESP_LOGE(TAG, "pwrite: offset %u + len %u exceeds total_bytes %u",
+                 (unsigned)offset, (unsigned)len, (unsigned)handle->total_bytes);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    long saved_pos = ftell(handle->fp);
+    if (fseek(handle->fp, (long)offset, SEEK_SET) != 0)
+    {
+        ESP_LOGE(TAG, "pwrite: fseek to %u failed", (unsigned)offset);
+        return ESP_FAIL;
+    }
+
+    size_t written = fwrite(data, 1, len, handle->fp);
+
+    /* Restore file position regardless of outcome. */
+    (void)fseek(handle->fp, saved_pos, SEEK_SET);
+
+    if (written != len)
+    {
+        ESP_LOGE(TAG, "pwrite: wrote %u of %u bytes at offset %u",
+                 (unsigned)written, (unsigned)len, (unsigned)offset);
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t data_storage_delete_profile(const char *name)
 {
     if (!name)

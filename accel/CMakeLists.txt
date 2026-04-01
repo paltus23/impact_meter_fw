@@ -3,5 +3,5 @@ idf_component_register(
          "adxl375.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES data_storage
-    REQUIRES driver freertos
+    REQUIRES driver freertos settings
 )

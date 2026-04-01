@@ -76,6 +76,15 @@ esp_err_t data_storage_read_profile(const char *name, size_t offset,
                                     void *buf, size_t len, size_t *out_bytes_read);
 
 /**
+ * Overwrite @p len bytes in the open profile at byte @p offset.
+ * Useful for patching a previously written header field (e.g. data_size).
+ * The internal file cursor is restored to its position before the call.
+ * Returns ESP_ERR_INVALID_ARG if offset + len exceeds the bytes written so far.
+ */
+esp_err_t data_storage_pwrite(data_storage_file_t handle, size_t offset,
+                               const void *data, size_t len);
+
+/**
  * Permanently delete the named profile.
  * Returns ESP_ERR_NOT_FOUND if the file does not exist.
  */

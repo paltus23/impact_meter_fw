@@ -14,6 +14,7 @@ set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/data_storage"
     "${CMAKE_CURRENT_LIST_DIR}/http_server"
     "${CMAKE_CURRENT_LIST_DIR}/led"
+    "${CMAKE_CURRENT_LIST_DIR}/settings"
     "${CMAKE_CURRENT_LIST_DIR}/wifi"
 )
 
