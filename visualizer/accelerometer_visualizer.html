@@ -108,6 +108,21 @@
   }
   .file-item:hover .fi-del { opacity: 1; }
   .file-item .fi-del:hover { color: var(--danger); background: rgba(249,123,123,0.12); }
+  .file-item .fi-dl {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color .12s, background .12s;
+    opacity: 0;
+  }
+  .file-item:hover .fi-dl { opacity: 1; }
+  .file-item .fi-dl:hover { color: var(--accent); background: rgba(79,156,249,0.12); }
 
   .file-empty {
     padding: 20px 14px;
@@ -787,6 +802,7 @@ function renderFileList(names) {
     <div class="file-item${name===activeFile?' active':''}" data-name="${name}">
       <span class="fi-icon">▶</span>
       <span class="fi-name" title="${name}">${name}</span>
+      <button class="fi-dl" data-name="${name}" title="Download ${name}">⬇</button>
       <button class="fi-del" data-name="${name}" title="Delete ${name}">✕</button>
     </div>
   `).join('');
@@ -794,7 +810,17 @@ function renderFileList(names) {
   list.querySelectorAll('.file-item').forEach(item => {
     item.addEventListener('click', e => {
       if (e.target.classList.contains('fi-del')) return;
+      if (e.target.classList.contains('fi-dl')) return;
       loadFileFromDevice(item.dataset.name);
+    });
+  });
+  list.querySelectorAll('.fi-dl').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const a = document.createElement('a');
+      a.href = baseUrl() + '/api/files/' + encodeURIComponent(btn.dataset.name);
+      a.download = btn.dataset.name;
+      a.click();
     });
   });
   list.querySelectorAll('.fi-del').forEach(btn => {

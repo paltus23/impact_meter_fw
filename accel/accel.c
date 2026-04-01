@@ -50,7 +50,7 @@
 #define ACCEL_RING_BUFFER_SAMPLE_RATE   100
 #define ACCEL_RING_BUFFER_MAX_SAMPLES   ((SETTINGS_MAX_PRECAPTURE_MS * ACCEL_RING_BUFFER_SAMPLE_RATE) / 1000)
 
-#define ACCEL_CAPTURE_FILE_NAME_FMT     "capture_%ld.bin"
+#define ACCEL_CAPTURE_FILE_NAME_FMT     "impact_%ld.bin"
 #define ACCEL_CAPTURE_FILE_NAME_LEN     32
 
 static adxl375_handle_t s_adxl;
