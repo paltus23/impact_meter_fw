@@ -13,9 +13,12 @@
 
 static const char *TAG = "http_server";
 
-/* Symbols injected by the linker from the embedded HTML file. */
-extern const char accel_vis_html_start[] asm("_binary_accelerometer_visualizer_html_start");
-extern const char accel_vis_html_end[]   asm("_binary_accelerometer_visualizer_html_end");
+/* Symbols injected by the linker from the embedded HTML files. */
+extern const char accel_vis_html_start[]  asm("_binary_accelerometer_visualizer_html_start");
+extern const char accel_vis_html_end[]    asm("_binary_accelerometer_visualizer_html_end");
+
+extern const char wifi_setup_html_start[] asm("_binary_wifi_setup_html_start");
+extern const char wifi_setup_html_end[]   asm("_binary_wifi_setup_html_end");
 
 /* GET /  →  serve the visualizer HTML page */
 static esp_err_t home_handler(httpd_req_t *req)
@@ -284,70 +287,39 @@ static esp_err_t post_settings_handler(httpd_req_t *req)
 
 /* ------------------------------------------------------------------ /wifi setup page */
 
-static const char WIFI_SETUP_HTML[] =
-    "<!DOCTYPE html><html><head>"
-    "<meta charset=\"utf-8\">"
-    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>WiFi Setup \xe2\x80\x94 Impact Meter</title>"
-    "<style>"
-    "body{font-family:sans-serif;max-width:420px;margin:40px auto;padding:0 16px;background:#f0f2f5}"
-    "h1{font-size:1.4rem;margin-bottom:4px}"
-    "p.sub{color:#666;font-size:.9rem;margin-top:0}"
-    ".card{background:#fff;border-radius:10px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,.12)}"
-    "label{display:block;margin-top:14px;font-size:.88rem;font-weight:600;color:#444}"
-    "input{width:100%;box-sizing:border-box;padding:9px 10px;margin-top:5px;border:1px solid #ccc;"
-          "border-radius:6px;font-size:1rem;outline:none}"
-    "input:focus{border-color:#1976d2;box-shadow:0 0 0 2px rgba(25,118,210,.2)}"
-    "button{margin-top:20px;width:100%;padding:11px;background:#1976d2;color:#fff;border:none;"
-           "border-radius:6px;font-size:1rem;cursor:pointer;font-weight:600}"
-    "button:active{background:#1565c0}"
-    "#msg{margin-top:14px;font-size:.9rem;text-align:center;min-height:1.2em}"
-    ".ok{color:#2e7d32}.err{color:#c62828}"
-    "</style></head><body>"
-    "<h1>WiFi Setup</h1>"
-    "<p class=\"sub\">Connect Impact Meter to your network.</p>"
-    "<div class=\"card\">"
-    "<form id=\"f\">"
-    "<label>Network SSID"
-    "<input type=\"text\" id=\"ssid\" maxlength=\"32\" autocomplete=\"off\""
-           " placeholder=\"Your WiFi name\" required></label>"
-    "<label>Password"
-    "<input type=\"password\" id=\"pass\" maxlength=\"64\""
-           " placeholder=\"Leave empty for open networks\"></label>"
-    "<button type=\"submit\">Save &amp; Reboot</button>"
-    "</form>"
-    "<div id=\"msg\"></div>"
-    "</div>"
-    "<script>"
-    "document.getElementById('f').onsubmit=async function(e){"
-      "e.preventDefault();"
-      "const msg=document.getElementById('msg');"
-      "msg.className='';msg.textContent='Saving...';"
-      "try{"
-        "const r=await fetch('/api/wifi',{method:'POST',"
-          "headers:{'Content-Type':'application/json'},"
-          "body:JSON.stringify({ssid:document.getElementById('ssid').value,"
-                               "password:document.getElementById('pass').value})});"
-        "const j=await r.json();"
-        "if(r.ok){"
-          "msg.className='ok';"
-          "msg.textContent='Saved! Rebooting and connecting to \"'+j.ssid+'\"...';"
-        "}else{"
-          "msg.className='err';"
-          "msg.textContent='Error: '+(j.error||'unknown');"
-        "}"
-      "}catch(ex){"
-        "msg.className='err';"
-        "msg.textContent='Request failed: '+ex.message;"
-      "}"
-    "};"
-    "</script></body></html>";
-
-/* GET /wifi  →  WiFi setup page */
+/* GET /wifi  →  WiFi setup page (served from embedded web_pages/wifi_setup.html) */
 static esp_err_t wifi_setup_page_handler(httpd_req_t *req)
 {
+    size_t html_len = (size_t)(wifi_setup_html_end - wifi_setup_html_start);
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, WIFI_SETUP_HTML, (ssize_t)sizeof(WIFI_SETUP_HTML) - 1);
+    httpd_resp_send(req, wifi_setup_html_start, (ssize_t)html_len);
+    return ESP_OK;
+}
+
+/* GET /api/wifi  →  saved SSID and current connection status as JSON */
+static esp_err_t get_wifi_handler(httpd_req_t *req)
+{
+    char ssid[SETTINGS_WIFI_SSID_MAX_LEN] = {0};
+    settings_get_wifi_ssid(ssid, sizeof(ssid));
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_OK;
+    }
+    cJSON_AddStringToObject(root, "ssid", ssid);
+    cJSON_AddBoolToObject(root, "connected", wifi_is_sta_connected());
+
+    char *body = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    httpd_resp_set_type(req, "application/json");
+    if (body) {
+        httpd_resp_sendstr(req, body);
+        free(body);
+    } else {
+        httpd_resp_sendstr(req, "{\"ssid\":\"\",\"connected\":false}");
+    }
     return ESP_OK;
 }
 
@@ -425,7 +397,7 @@ void http_server_init(void)
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.uri_match_fn = httpd_uri_match_wildcard;
-    config.max_uri_handlers = 10;
+    config.max_uri_handlers = 12;
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d", config.server_port);
     if (httpd_start(&server, &config) != ESP_OK) {
@@ -488,6 +460,13 @@ void http_server_init(void)
         .handler = wifi_setup_page_handler,
     };
     httpd_register_uri_handler(server, &wifi_page_uri);
+
+    static const httpd_uri_t get_wifi_uri = {
+        .uri     = "/api/wifi",
+        .method  = HTTP_GET,
+        .handler = get_wifi_handler,
+    };
+    httpd_register_uri_handler(server, &get_wifi_uri);
 
     static const httpd_uri_t post_wifi_uri = {
         .uri     = "/api/wifi",

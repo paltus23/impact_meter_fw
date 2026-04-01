@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WiFi Setup &#8212; Impact Meter</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 420px;
+      margin: 40px auto;
+      padding: 0 16px;
+      background: #f0f2f5;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; }
+    p.sub { color: #666; font-size: .9rem; margin-top: 0; }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 24px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.12);
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 7px;
+      margin-bottom: 18px;
+      font-size: .9rem;
+      font-weight: 600;
+    }
+    .status.connected    { background: #e8f5e9; color: #2e7d32; }
+    .status.disconnected { background: #fff3e0; color: #e65100; }
+    .status.none         { background: #f5f5f5; color: #757575; }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .connected    .status-dot { background: #43a047; }
+    .disconnected .status-dot { background: #ef6c00; }
+    .none         .status-dot { background: #bdbdbd; }
+
+    label {
+      display: block;
+      margin-top: 14px;
+      font-size: .88rem;
+      font-weight: 600;
+      color: #444;
+    }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      outline: none;
+    }
+    input:focus {
+      border-color: #1976d2;
+      box-shadow: 0 0 0 2px rgba(25,118,210,.2);
+    }
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 11px;
+      background: #1976d2;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:active { background: #1565c0; }
+
+    #msg {
+      margin-top: 14px;
+      font-size: .9rem;
+      text-align: center;
+      min-height: 1.2em;
+    }
+    .ok  { color: #2e7d32; }
+    .err { color: #c62828; }
+  </style>
+</head>
+<body>
+  <h1>WiFi Setup</h1>
+  <p class="sub">Connect Impact Meter to your network.</p>
+
+  <div class="card">
+    <div id="status" class="status none">
+      <span class="status-dot"></span>
+      <span id="status-text">Loading&#8230;</span>
+    </div>
+
+    <form id="f">
+      <label>Network SSID
+        <input type="text" id="ssid" maxlength="32" autocomplete="off"
+               placeholder="Your WiFi name" required>
+      </label>
+      <label>Password
+        <input type="password" id="pass" maxlength="64"
+               placeholder="Leave empty for open networks">
+      </label>
+      <button type="submit">Save &amp; Reboot</button>
+    </form>
+
+    <div id="msg"></div>
+  </div>
+
+  <script>
+    async function loadStatus() {
+      const statusEl   = document.getElementById('status');
+      const statusText = document.getElementById('status-text');
+      const ssidInput  = document.getElementById('ssid');
+      try {
+        const r = await fetch('/api/wifi');
+        const j = await r.json();
+        if (j.ssid && j.ssid.length > 0) {
+          ssidInput.value = j.ssid;
+          if (j.connected) {
+            statusEl.className  = 'status connected';
+            statusText.textContent = 'Connected to: ' + j.ssid;
+          } else {
+            statusEl.className  = 'status disconnected';
+            statusText.textContent = 'Saved network: ' + j.ssid + ' (not connected)';
+          }
+        } else {
+          statusEl.className  = 'status none';
+          statusText.textContent = 'No network configured';
+        }
+      } catch (ex) {
+        statusEl.className  = 'status none';
+        statusText.textContent = 'Status unavailable';
+      }
+    }
+
+    loadStatus();
+
+    document.getElementById('f').onsubmit = async function(e) {
+      e.preventDefault();
+      const msg = document.getElementById('msg');
+      msg.className   = '';
+      msg.textContent = 'Saving\u2026';
+      try {
+        const r = await fetch('/api/wifi', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            ssid:     document.getElementById('ssid').value,
+            password: document.getElementById('pass').value
+          })
+        });
+        const j = await r.json();
+        if (r.ok) {
+          msg.className   = 'ok';
+          msg.textContent = 'Saved! Rebooting and connecting to \u201c' + j.ssid + '\u201d\u2026';
+        } else {
+          msg.className   = 'err';
+          msg.textContent = 'Error: ' + (j.error || 'unknown');
+        }
+      } catch (ex) {
+        msg.className   = 'err';
+        msg.textContent = 'Request failed: ' + ex.message;
+      }
+    };
+  </script>
+</body>
+</html>
