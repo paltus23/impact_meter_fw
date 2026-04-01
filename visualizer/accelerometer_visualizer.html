@@ -22,6 +22,7 @@
     --cz: #f97b4f;
     --ca: #a78bfa;
     --accent: #4f9cf9;
+    --danger: #f97b7b;
     --radius: 10px;
     --font: 'IBM Plex Mono', 'Courier New', monospace;
   }
@@ -35,6 +36,148 @@
     font-size: 13px;
   }
 
+  /* ── Layout ──────────────────────────────────── */
+  .app-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .app-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Sidebar ─────────────────────────────────── */
+  .sidebar { display: flex; flex-direction: column; gap: 12px; }
+
+  /* ── Panel shared ────────────────────────────── */
+  .panel {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    border-bottom: 0.5px solid var(--border);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text3);
+    font-weight: 600;
+  }
+  .panel-header .ph-actions { display: flex; gap: 6px; align-items: center; }
+
+  /* ── File list ───────────────────────────────── */
+  .file-list { min-height: 60px; max-height: 320px; overflow-y: auto; }
+  .file-list::-webkit-scrollbar { width: 4px; }
+  .file-list::-webkit-scrollbar-track { background: transparent; }
+  .file-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 0.5px solid var(--border);
+    cursor: pointer;
+    transition: background .12s;
+    position: relative;
+  }
+  .file-item:last-child { border-bottom: none; }
+  .file-item:hover { background: rgba(79,156,249,0.06); }
+  .file-item.active { background: rgba(79,156,249,0.12); }
+  .file-item .fi-icon { color: var(--accent); font-size: 13px; flex-shrink: 0; }
+  .file-item .fi-name { flex: 1; font-size: 11px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-item.active .fi-name { color: var(--accent); }
+  .file-item .fi-del {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color .12s, background .12s;
+    opacity: 0;
+  }
+  .file-item:hover .fi-del { opacity: 1; }
+  .file-item .fi-del:hover { color: var(--danger); background: rgba(249,123,123,0.12); }
+
+  .file-empty {
+    padding: 20px 14px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .file-loading {
+    padding: 20px 14px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  /* ── Settings panel ──────────────────────────── */
+  .settings-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .setting-row { display: flex; flex-direction: column; gap: 4px; }
+  .setting-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); }
+  .setting-desc { font-size: 10px; color: var(--text3); opacity: .7; }
+  .setting-control { display: flex; gap: 6px; align-items: center; }
+  .setting-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 8px;
+    outline: none;
+    transition: border-color .15s;
+    min-width: 0;
+  }
+  .setting-input:focus { border-color: var(--accent); }
+  .setting-unit { font-size: 10px; color: var(--text3); white-space: nowrap; }
+  .settings-actions { display: flex; gap: 8px; padding-top: 4px; }
+  .settings-status { font-size: 10px; min-height: 14px; padding-top: 2px; }
+  .settings-status.ok { color: var(--cy); }
+  .settings-status.err { color: var(--danger); }
+
+  /* ── Buttons shared ──────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text2);
+    font-family: var(--font);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: .05em;
+    transition: background .12s, border-color .12s, color .12s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255,255,255,0.06); border-color: var(--border2); color: var(--text); }
+  .btn.btn-accent { border-color: var(--accent); color: var(--accent); }
+  .btn.btn-accent:hover { background: rgba(79,156,249,0.12); }
+  .btn.btn-danger { border-color: rgba(249,123,123,0.4); color: var(--danger); }
+  .btn.btn-danger:hover { background: rgba(249,123,123,0.1); border-color: var(--danger); }
+  .btn.btn-save { border-color: rgba(62,207,142,0.4); color: var(--cy); }
+  .btn.btn-save:hover { background: rgba(62,207,142,0.1); border-color: var(--cy); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── Main column ─────────────────────────────── */
+  .main-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  /* ── Top bar with title ──────────────────────── */
   h1 {
     font-size: 15px;
     font-weight: 600;
@@ -54,8 +197,31 @@
     border-radius: 50%;
     box-shadow: 0 0 6px var(--accent);
   }
+  .h1-device-ip {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: .05em;
+    color: var(--text3);
+  }
+  .h1-device-ip input {
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 11px;
+    padding: 3px 8px;
+    outline: none;
+    width: 150px;
+    transition: border-color .15s;
+  }
+  .h1-device-ip input:focus { border-color: var(--accent); }
 
-  /* Parse options bar */
+  /* ── Parse options bar ───────────────────────── */
   .parse-opts {
     display: flex;
     flex-wrap: wrap;
@@ -65,7 +231,6 @@
     border: 0.5px solid var(--border);
     border-radius: var(--radius);
     padding: 10px 16px;
-    margin-bottom: 12px;
   }
   .parse-opts label { color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
   .parse-opts select, .parse-opts input[type=text], .parse-opts input[type=number] {
@@ -82,14 +247,13 @@
   .parse-opts select:focus, .parse-opts input:focus { border-color: var(--accent); }
   .parse-opts .group { display: flex; align-items: center; gap: 6px; }
 
-  /* Drop zone */
+  /* ── Drop zone ───────────────────────────────── */
   .drop-zone {
     border: 1.5px dashed var(--border2);
     border-radius: var(--radius);
-    padding: 1.8rem 1rem;
+    padding: 1.4rem 1rem;
     text-align: center;
     cursor: pointer;
-    margin-bottom: 12px;
     transition: border-color .15s, background .15s;
     position: relative;
   }
@@ -100,7 +264,7 @@
   .drop-zone .dz-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
   .drop-zone .dz-sub { font-size: 11px; color: var(--text3); }
   .drop-zone .sample-btn {
-    margin-top: 12px;
+    margin-top: 10px;
     background: none;
     border: 0.5px solid var(--border2);
     border-radius: 6px;
@@ -114,10 +278,8 @@
   }
   .drop-zone .sample-btn:hover { background: rgba(79,156,249,0.1); border-color: var(--accent); }
 
-  /* Error */
-  .error-msg { color: #f97b7b; font-size: 12px; margin-bottom: 8px; min-height: 16px; }
-
-  /* Profile header info banner */
+  /* ── Error / header info ─────────────────────── */
+  .error-msg { color: #f97b7b; font-size: 12px; min-height: 16px; }
   .header-info {
     display: none;
     font-size: 11px;
@@ -126,11 +288,10 @@
     border: 0.5px solid rgba(79,156,249,0.25);
     border-radius: 6px;
     padding: 5px 12px;
-    margin-bottom: 10px;
     letter-spacing: .04em;
   }
 
-  /* Controls */
+  /* ── Controls ────────────────────────────────── */
   .controls {
     display: flex;
     flex-wrap: wrap;
@@ -140,7 +301,6 @@
     border: 0.5px solid var(--border);
     border-radius: var(--radius);
     padding: 10px 16px;
-    margin-bottom: 12px;
   }
   .ctrl-group { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .07em; }
   .ctrl-group input[type=range] {
@@ -162,12 +322,11 @@
   .ctrl-val { font-size: 12px; color: var(--text); min-width: 52px; font-weight: 600; }
   .pt-count { margin-left: auto; font-size: 11px; color: var(--text3); }
 
-  /* Stats */
+  /* ── Stats ───────────────────────────────────── */
   .stats-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0,1fr));
     gap: 10px;
-    margin-bottom: 12px;
   }
   .stat-card {
     background: var(--bg2);
@@ -180,7 +339,7 @@
   .stat-val { font-size: 22px; font-weight: 700; color: var(--c); }
   .stat-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
 
-  /* Charts grid */
+  /* ── Charts grid ─────────────────────────────── */
   .charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -203,6 +362,31 @@
   .chart-rng { margin-left: auto; font-size: 10px; color: var(--text3); }
   .chart-wrap { position: relative; height: 170px; }
 
+  /* ── Confirm dialog ──────────────────────────── */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    max-width: 360px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .modal-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .modal-body { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
   @media (max-width: 640px) {
     .charts-grid { grid-template-columns: 1fr; }
     .stats-row { grid-template-columns: repeat(2, 1fr); }
@@ -211,125 +395,225 @@
 </head>
 <body>
 
-<h1>Accelerometer Visualizer</h1>
+<h1>
+  Accelerometer Visualizer
+  <div class="h1-device-ip">
+    <span>Device IP</span>
+    <input id="deviceIp" type="text" placeholder="192.168.x.x" />
+  </div>
+</h1>
 
-<div class="parse-opts">
-  <div class="group"><label>Format</label>
-    <select id="fmtSel">
-      <option value="text">Text / CSV</option>
-      <option value="binary">Binary (int16 LE)</option>
-    </select>
-  </div>
-  <div class="group"><label>Columns</label>
-    <input id="colOrder" type="text" value="x,y,z" style="width:90px" title="e.g. x,y,z or t,x,y,z" />
-  </div>
-  <div class="group"><label>Separator</label>
-    <select id="sepSel">
-      <option value="auto">auto</option>
-      <option value=",">comma</option>
-      <option value="	">tab</option>
-      <option value=" ">space</option>
-      <option value=";">semicolon</option>
-    </select>
-  </div>
-  <div class="group"><label>Sample rate (Hz)</label>
-    <input id="srInput" type="number" value="100" min="1" max="100000" style="width:72px" />
-  </div>
-  <div class="group"><label>Scale (LSB/unit)</label>
-    <input id="scaleInput" type="number" value="1" min="0.0001" step="any" style="width:72px" title="Divide raw int16 by this value. E.g. 16384 for ±2g MPU-6050" />
-  </div>
-</div>
-
-<div class="drop-zone" id="dropZone">
-  <div class="dz-title">Drop file here or click to browse</div>
-  <div class="dz-sub">Binary (.bin .dat .raw) — int16 LE triplets &nbsp;|&nbsp; Text (.csv .txt) — one row per sample</div>
-  <input type="file" id="fileIn" style="display:none" />
-  <button class="sample-btn" id="loadSample">Load sample data</button>
-</div>
-<div class="error-msg" id="errMsg"></div>
-<div class="header-info" id="headerInfo"></div>
-
-<div class="controls">
-  <div class="ctrl-group">
-    <span>Window</span>
-    <input type="range" id="windowSlider" min="50" max="5000" value="500" step="50" />
-    <span class="ctrl-val" id="windowVal">500 pts</span>
-  </div>
-  <div class="ctrl-group">
-    <span>Start</span>
-    <input type="range" id="startSlider" min="0" max="100" value="0" step="1" />
-    <span class="ctrl-val" id="startPct">0%</span>
-  </div>
-  <span class="pt-count" id="ptCount"></span>
-</div>
-
-<div class="stats-row">
-  <div class="stat-card" style="--c: var(--cx)">
-    <div class="stat-label">X peak</div>
-    <div class="stat-val" id="stX">—</div>
-    <div class="stat-sub" id="stXr">raw int16</div>
-  </div>
-  <div class="stat-card" style="--c: var(--cy)">
-    <div class="stat-label">Y peak</div>
-    <div class="stat-val" id="stY">—</div>
-    <div class="stat-sub" id="stYr">raw int16</div>
-  </div>
-  <div class="stat-card" style="--c: var(--cz)">
-    <div class="stat-label">Z peak</div>
-    <div class="stat-val" id="stZ">—</div>
-    <div class="stat-sub" id="stZr">raw int16</div>
-  </div>
-  <div class="stat-card" style="--c: var(--ca)">
-    <div class="stat-label">Amplitude peak</div>
-    <div class="stat-val" id="stA">—</div>
-    <div class="stat-sub" id="stAr">|v| = √(x²+y²+z²)</div>
-  </div>
-</div>
-
-<div class="charts-grid">
-  <div class="chart-card">
-    <div class="chart-header">
-      <div class="chart-dot" style="background:var(--cx);box-shadow:0 0 5px var(--cx)"></div>
-      <span class="chart-title" style="color:var(--cx)">X axis</span>
-      <span class="chart-rng" id="rngX"></span>
+<!-- ── Confirm modal ─────────────────────────────────── -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal">
+    <div class="modal-title" id="confirmTitle">Confirm</div>
+    <div class="modal-body" id="confirmBody"></div>
+    <div class="modal-actions">
+      <button class="btn" id="confirmCancel">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Delete</button>
     </div>
-    <div class="chart-wrap"><canvas id="cX"></canvas></div>
-  </div>
-  <div class="chart-card">
-    <div class="chart-header">
-      <div class="chart-dot" style="background:var(--cy);box-shadow:0 0 5px var(--cy)"></div>
-      <span class="chart-title" style="color:var(--cy)">Y axis</span>
-      <span class="chart-rng" id="rngY"></span>
-    </div>
-    <div class="chart-wrap"><canvas id="cY"></canvas></div>
-  </div>
-  <div class="chart-card">
-    <div class="chart-header">
-      <div class="chart-dot" style="background:var(--cz);box-shadow:0 0 5px var(--cz)"></div>
-      <span class="chart-title" style="color:var(--cz)">Z axis</span>
-      <span class="chart-rng" id="rngZ"></span>
-    </div>
-    <div class="chart-wrap"><canvas id="cZ"></canvas></div>
-  </div>
-  <div class="chart-card">
-    <div class="chart-header">
-      <div class="chart-dot" style="background:var(--ca);box-shadow:0 0 5px var(--ca)"></div>
-      <span class="chart-title" style="color:var(--ca)">Amplitude |v|</span>
-      <span class="chart-rng" id="rngA"></span>
-    </div>
-    <div class="chart-wrap"><canvas id="cA"></canvas></div>
   </div>
 </div>
+
+<div class="app-layout">
+
+  <!-- ═══════════════ SIDEBAR ═══════════════ -->
+  <div class="sidebar">
+
+    <!-- Files panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Capture files</span>
+        <div class="ph-actions">
+          <button class="btn btn-accent" id="btnRefresh" title="Refresh file list">↻ Refresh</button>
+          <button class="btn btn-danger" id="btnDeleteAll" title="Delete all files">✕ All</button>
+        </div>
+      </div>
+      <div class="file-list" id="fileList">
+        <div class="file-loading" id="fileListStatus">Connecting…</div>
+      </div>
+    </div>
+
+    <!-- Settings panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Device settings</span>
+        <button class="btn btn-accent" id="btnFetchSettings" title="Reload from device">↻</button>
+      </div>
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">Pre-capture window</div>
+          <div class="setting-desc">Ring-buffer before trigger event</div>
+          <div class="setting-control">
+            <input class="setting-input" id="sPrecap" type="number" min="0" max="5000" step="50" value="200" />
+            <span class="setting-unit">ms</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Capture duration</div>
+          <div class="setting-desc">Post-event recording length</div>
+          <div class="setting-control">
+            <input class="setting-input" id="sCapture" type="number" min="1" max="60000" step="100" value="1000" />
+            <span class="setting-unit">ms</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Profile number</div>
+          <div class="setting-desc">Next capture file index (read-only)</div>
+          <div class="setting-control">
+            <input class="setting-input" id="sProfileNum" type="number" value="0" readonly style="opacity:.5;cursor:not-allowed" />
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button class="btn btn-save" id="btnSaveSettings">✓ Save settings</button>
+        </div>
+        <div class="settings-status" id="settingsStatus"></div>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <div class="main-col">
+
+    <!-- Parse options -->
+    <div class="parse-opts">
+      <div class="group"><label>Format</label>
+        <select id="fmtSel">
+          <option value="text">Text / CSV</option>
+          <option value="binary" selected>Binary (int16 LE)</option>
+        </select>
+      </div>
+      <div class="group"><label>Columns</label>
+        <input id="colOrder" type="text" value="x,y,z" style="width:90px" title="e.g. x,y,z or t,x,y,z" />
+      </div>
+      <div class="group"><label>Separator</label>
+        <select id="sepSel">
+          <option value="auto">auto</option>
+          <option value=",">comma</option>
+          <option value="&#9;">tab</option>
+          <option value=" ">space</option>
+          <option value=";">semicolon</option>
+        </select>
+      </div>
+      <div class="group"><label>Sample rate (Hz)</label>
+        <input id="srInput" type="number" value="3200" min="1" max="100000" style="width:72px" />
+      </div>
+      <div class="group"><label>Scale (LSB/unit)</label>
+        <input id="scaleInput" type="number" value="20.408" min="0.0001" step="any" style="width:72px" title="49 mg/LSB → scale = 1/0.049 ≈ 20.408 for g" />
+      </div>
+    </div>
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="dropZone">
+      <div class="dz-title">Drop file here or click to browse</div>
+      <div class="dz-sub">Binary (.bin .dat .raw) — int16 LE triplets &nbsp;|&nbsp; Text (.csv .txt) — one row per sample</div>
+      <input type="file" id="fileIn" style="display:none" />
+      <button class="sample-btn" id="loadSample">Load sample data</button>
+    </div>
+    <div class="error-msg" id="errMsg"></div>
+    <div class="header-info" id="headerInfo"></div>
+
+    <!-- Chart controls -->
+    <div class="controls">
+      <div class="ctrl-group">
+        <span>Window</span>
+        <input type="range" id="windowSlider" min="50" max="5000" value="500" step="50" />
+        <span class="ctrl-val" id="windowVal">500 pts</span>
+      </div>
+      <div class="ctrl-group">
+        <span>Start</span>
+        <input type="range" id="startSlider" min="0" max="100" value="0" step="1" />
+        <span class="ctrl-val" id="startPct">0%</span>
+      </div>
+      <span class="pt-count" id="ptCount"></span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card" style="--c: var(--cx)">
+        <div class="stat-label">X peak</div>
+        <div class="stat-val" id="stX">—</div>
+        <div class="stat-sub" id="stXr">raw int16</div>
+      </div>
+      <div class="stat-card" style="--c: var(--cy)">
+        <div class="stat-label">Y peak</div>
+        <div class="stat-val" id="stY">—</div>
+        <div class="stat-sub" id="stYr">raw int16</div>
+      </div>
+      <div class="stat-card" style="--c: var(--cz)">
+        <div class="stat-label">Z peak</div>
+        <div class="stat-val" id="stZ">—</div>
+        <div class="stat-sub" id="stZr">raw int16</div>
+      </div>
+      <div class="stat-card" style="--c: var(--ca)">
+        <div class="stat-label">Amplitude peak</div>
+        <div class="stat-val" id="stA">—</div>
+        <div class="stat-sub" id="stAr">|v| = √(x²+y²+z²)</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-dot" style="background:var(--cx);box-shadow:0 0 5px var(--cx)"></div>
+          <span class="chart-title" style="color:var(--cx)">X axis</span>
+          <span class="chart-rng" id="rngX"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="cX"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-dot" style="background:var(--cy);box-shadow:0 0 5px var(--cy)"></div>
+          <span class="chart-title" style="color:var(--cy)">Y axis</span>
+          <span class="chart-rng" id="rngY"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="cY"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-dot" style="background:var(--cz);box-shadow:0 0 5px var(--cz)"></div>
+          <span class="chart-title" style="color:var(--cz)">Z axis</span>
+          <span class="chart-rng" id="rngZ"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="cZ"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-dot" style="background:var(--ca);box-shadow:0 0 5px var(--ca)"></div>
+          <span class="chart-title" style="color:var(--ca)">Amplitude |v|</span>
+          <span class="chart-rng" id="rngA"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="cA"></canvas></div>
+      </div>
+    </div>
+
+  </div><!-- /main-col -->
+</div><!-- /app-layout -->
 
 <script>
+/* ═══════════════════════════════════════════
+   Helpers
+══════════════════════════════════════════ */
 let rawX=[], rawY=[], rawZ=[];
 let charts={};
+let activeFile = null;
 
 const COLORS = { X:'#4f9cf9', Y:'#3ecf8e', Z:'#f97b4f', A:'#a78bfa' };
-
 const gridColor = 'rgba(255,255,255,0.06)';
 const tickColor = '#555d78';
 
+function baseUrl() {
+  const ip = document.getElementById('deviceIp').value.trim().replace(/\/+$/, '');
+  return ip.startsWith('http') ? ip : 'http://' + ip;
+}
+
+function setErr(msg) { document.getElementById('errMsg').textContent = msg; }
+
+/* ═══════════════════════════════════════════
+   Charts
+══════════════════════════════════════════ */
 function buildChart(id, color) {
   const ctx = document.getElementById(id).getContext('2d');
   return new Chart(ctx, {
@@ -361,7 +645,7 @@ initCharts();
 
 function updateCharts() {
   if (!rawX.length) return;
-  const sr = parseFloat(document.getElementById('srInput').value)||100;
+  const sr = parseFloat(document.getElementById('srInput').value)||3200;
   const scale = parseFloat(document.getElementById('scaleInput').value)||1;
   const winSize = parseInt(document.getElementById('windowSlider').value);
   const startPct = parseInt(document.getElementById('startSlider').value)/100;
@@ -375,7 +659,7 @@ function updateCharts() {
   const as = xs.map((x,i)=>Math.sqrt(x*x+ys[i]*ys[i]+zs[i]*zs[i]));
   const labels = xs.map((_,i)=>((startIdx+i)/sr).toFixed(3));
 
-  function setData(chart, data, rngEl) {
+  function setChartData(chart, data, rngEl) {
     chart.data.labels = labels;
     chart.data.datasets[0].data = data;
     chart.update('none');
@@ -384,20 +668,17 @@ function updateCharts() {
       rngEl.textContent = mn.toFixed(2)+' … '+mx.toFixed(2);
     }
   }
-  setData(charts.X, xs, document.getElementById('rngX'));
-  setData(charts.Y, ys, document.getElementById('rngY'));
-  setData(charts.Z, zs, document.getElementById('rngZ'));
-  setData(charts.A, as, document.getElementById('rngA'));
+  setChartData(charts.X, xs, document.getElementById('rngX'));
+  setChartData(charts.Y, ys, document.getElementById('rngY'));
+  setChartData(charts.Z, zs, document.getElementById('rngZ'));
+  setChartData(charts.A, as, document.getElementById('rngA'));
 
   const peakRaw = arr => Math.max(...arr.map(Math.abs));
   const peakScaled = arr => (peakRaw(arr)/scale).toFixed(4);
   document.getElementById('stX').textContent = peakScaled(rawX);
   document.getElementById('stY').textContent = peakScaled(rawY);
   document.getElementById('stZ').textContent = peakScaled(rawZ);
-  const allA = rawX.map((x,i)=>{
-    const sx=x/scale, sy=rawY[i]/scale, sz=rawZ[i]/scale;
-    return Math.sqrt(sx*sx+sy*sy+sz*sz);
-  });
+  const allA = rawX.map((x,i)=>{ const sx=x/scale, sy=rawY[i]/scale, sz=rawZ[i]/scale; return Math.sqrt(sx*sx+sy*sy+sz*sz); });
   document.getElementById('stA').textContent = Math.max(...allA).toFixed(4);
   const u = scale===1?'raw int16':'units';
   ['stXr','stYr','stZr'].forEach(id=>document.getElementById(id).textContent=u);
@@ -415,6 +696,9 @@ function setData(x,y,z) {
   updateCharts();
 }
 
+/* ═══════════════════════════════════════════
+   Parsers
+══════════════════════════════════════════ */
 function parseText(text) {
   const sep = document.getElementById('sepSel').value;
   const colDef = document.getElementById('colOrder').value.split(',').map(s=>s.trim().toLowerCase());
@@ -432,17 +716,11 @@ function parseText(text) {
   return [X,Y,Z];
 }
 
-const PROFILE_HEADER_MAGIC = 0x4C454341; // 'A','C','E','L' little-endian
+const PROFILE_HEADER_MAGIC = 0x4C454341;
 
-/**
- * Try to parse a profile_header_t from buf.
- * Returns { headerSize, odrHz, dataSize } on success, or null if no valid header.
- */
 function tryReadProfileHeader(view) {
-  if (view.byteLength < 15) return null;          // minimum header size
-  const magic = view.getUint32(0, true);
-  if (magic !== PROFILE_HEADER_MAGIC) return null;
-  const version    = view.getUint8(4);             // eslint-disable-line no-unused-vars
+  if (view.byteLength < 15) return null;
+  if (view.getUint32(0, true) !== PROFILE_HEADER_MAGIC) return null;
   const headerSize = view.getUint16(5, true);
   const odrHz      = view.getFloat32(7, true);
   const dataSize   = headerSize >= 15 ? view.getUint32(11, true) : 0;
@@ -450,30 +728,22 @@ function tryReadProfileHeader(view) {
 }
 
 function parseBinary(buf) {
-  // int16 little-endian triplets: X,Y,Z,X,Y,Z,...  (6 bytes per sample)
   const view = new DataView(buf);
-
-  /* Detect optional profile header. */
   let sampleOffset = 0;
   const header = tryReadProfileHeader(view);
   if (header) {
     sampleOffset = header.headerSize;
-    /* Auto-populate the sample-rate input from the header ODR. */
     const srEl = document.getElementById('srInput');
     if (srEl) srEl.value = header.odrHz;
-    /* Show header info banner. */
     const infoEl = document.getElementById('headerInfo');
     if (infoEl) {
-      infoEl.textContent =
-        `Profile header v1 · ODR ${header.odrHz} Hz · ` +
-        `data ${header.dataSize ? header.dataSize.toLocaleString() + ' B' : '(unknown)'}`;
+      infoEl.textContent = `Profile header v1 · ODR ${header.odrHz} Hz · data ${header.dataSize ? header.dataSize.toLocaleString()+' B' : '(unknown)'}`;
       infoEl.style.display = 'block';
     }
   } else {
     const infoEl = document.getElementById('headerInfo');
     if (infoEl) infoEl.style.display = 'none';
   }
-
   const payloadBytes = buf.byteLength - sampleOffset;
   const n = Math.floor(payloadBytes / 6);
   if (!n) throw new Error('File too small for int16 triplets (need ≥6 bytes of sample data).');
@@ -488,25 +758,198 @@ function parseBinary(buf) {
 }
 
 function loadFile(file) {
-  document.getElementById('errMsg').textContent='';
+  setErr('');
   const fmt = document.getElementById('fmtSel').value;
   const reader = new FileReader();
-  reader.onerror = ()=>{ document.getElementById('errMsg').textContent='Could not read file.'; };
+  reader.onerror = ()=>setErr('Could not read file.');
   reader.onload = e=>{
     try {
       let res;
       if(fmt==='binary') res=parseBinary(e.target.result);
       else res=parseText(e.target.result);
       setData(...res);
-    } catch(err) {
-      document.getElementById('errMsg').textContent=err.message;
-    }
+    } catch(err) { setErr(err.message); }
   };
   if(fmt==='binary') reader.readAsArrayBuffer(file);
   else reader.readAsText(file);
 }
 
-// Events
+/* ═══════════════════════════════════════════
+   File list
+══════════════════════════════════════════ */
+function renderFileList(names) {
+  const list = document.getElementById('fileList');
+  if (!names.length) {
+    list.innerHTML = '<div class="file-empty">No capture files on device</div>';
+    return;
+  }
+  list.innerHTML = names.map(name => `
+    <div class="file-item${name===activeFile?' active':''}" data-name="${name}">
+      <span class="fi-icon">▶</span>
+      <span class="fi-name" title="${name}">${name}</span>
+      <button class="fi-del" data-name="${name}" title="Delete ${name}">✕</button>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.file-item').forEach(item => {
+    item.addEventListener('click', e => {
+      if (e.target.classList.contains('fi-del')) return;
+      loadFileFromDevice(item.dataset.name);
+    });
+  });
+  list.querySelectorAll('.fi-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      confirmDelete(btn.dataset.name);
+    });
+  });
+}
+
+async function refreshFileList() {
+  const status = document.getElementById('fileListStatus');
+  const list = document.getElementById('fileList');
+  status && (status.textContent = 'Loading…');
+  list.innerHTML = '<div class="file-loading">Loading…</div>';
+  try {
+    const res = await fetch(baseUrl() + '/api/files');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const names = await res.json();
+    renderFileList(names);
+  } catch(e) {
+    list.innerHTML = `<div class="file-empty" style="color:var(--danger)">Cannot reach device<br><span style="font-size:10px;opacity:.7">${e.message}</span></div>`;
+  }
+}
+
+async function loadFileFromDevice(name) {
+  setErr('');
+  activeFile = name;
+  // Re-render to highlight
+  const items = document.querySelectorAll('.file-item');
+  items.forEach(it => it.classList.toggle('active', it.dataset.name === name));
+
+  try {
+    const res = await fetch(baseUrl() + '/api/files/' + encodeURIComponent(name));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const buf = await res.arrayBuffer();
+    const parsed = parseBinary(buf);
+    setData(...parsed);
+  } catch(e) {
+    setErr('Failed to load ' + name + ': ' + e.message);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Delete with confirm modal
+══════════════════════════════════════════ */
+let _confirmResolve = null;
+
+function showConfirm(title, body) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmBody').textContent = body;
+  document.getElementById('confirmModal').classList.add('open');
+  return new Promise(resolve => { _confirmResolve = resolve; });
+}
+
+document.getElementById('confirmOk').addEventListener('click', () => {
+  document.getElementById('confirmModal').classList.remove('open');
+  if (_confirmResolve) { _confirmResolve(true); _confirmResolve = null; }
+});
+document.getElementById('confirmCancel').addEventListener('click', () => {
+  document.getElementById('confirmModal').classList.remove('open');
+  if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+});
+document.getElementById('confirmModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('confirmModal').classList.remove('open');
+    if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+  }
+});
+
+async function confirmDelete(name) {
+  const ok = await showConfirm('Delete file', `Delete "${name}" from device? This cannot be undone.`);
+  if (!ok) return;
+  try {
+    const res = await fetch(baseUrl() + '/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (activeFile === name) activeFile = null;
+    await refreshFileList();
+  } catch(e) {
+    setErr('Delete failed: ' + e.message);
+  }
+}
+
+document.getElementById('btnDeleteAll').addEventListener('click', async () => {
+  const ok = await showConfirm('Delete all files', 'Delete ALL capture files from device? This cannot be undone.');
+  if (!ok) return;
+  try {
+    const res = await fetch(baseUrl() + '/api/files', { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const body = await res.json();
+    activeFile = null;
+    await refreshFileList();
+    setErr(''); // clear any previous error
+  } catch(e) {
+    setErr('Delete all failed: ' + e.message);
+  }
+});
+
+document.getElementById('btnRefresh').addEventListener('click', refreshFileList);
+
+/* ═══════════════════════════════════════════
+   Settings
+══════════════════════════════════════════ */
+function setSettingsStatus(msg, type='') {
+  const el = document.getElementById('settingsStatus');
+  el.textContent = msg;
+  el.className = 'settings-status' + (type ? ' ' + type : '');
+  if (msg && type === 'ok') setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 2500);
+}
+
+async function fetchSettings() {
+  setSettingsStatus('Loading…');
+  try {
+    const res = await fetch(baseUrl() + '/api/settings');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const s = await res.json();
+    document.getElementById('sPrecap').value = s.precap_ms ?? '';
+    document.getElementById('sCapture').value = s.capture_ms ?? '';
+    document.getElementById('sProfileNum').value = s.profile_num ?? '';
+    setSettingsStatus('Loaded from device', 'ok');
+  } catch(e) {
+    setSettingsStatus('Cannot reach device: ' + e.message, 'err');
+  }
+}
+
+async function saveSettings() {
+  setSettingsStatus('Saving…');
+  const payload = {
+    precap_ms:  parseInt(document.getElementById('sPrecap').value),
+    capture_ms: parseInt(document.getElementById('sCapture').value),
+  };
+  if (isNaN(payload.precap_ms) || isNaN(payload.capture_ms)) {
+    setSettingsStatus('Invalid values', 'err'); return;
+  }
+  try {
+    const res = await fetch(baseUrl() + '/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const s = await res.json();
+    document.getElementById('sProfileNum').value = s.profile_num ?? '';
+    setSettingsStatus('Saved ✓', 'ok');
+  } catch(e) {
+    setSettingsStatus('Save failed: ' + e.message, 'err');
+  }
+}
+
+document.getElementById('btnFetchSettings').addEventListener('click', fetchSettings);
+document.getElementById('btnSaveSettings').addEventListener('click', saveSettings);
+
+/* ═══════════════════════════════════════════
+   Drop zone / file input
+══════════════════════════════════════════ */
 document.getElementById('dropZone').addEventListener('click', e=>{
   if(e.target.id==='loadSample') return;
   document.getElementById('fileIn').click();
@@ -514,11 +957,17 @@ document.getElementById('dropZone').addEventListener('click', e=>{
 document.getElementById('fileIn').addEventListener('change', e=>{
   if(e.target.files[0]) loadFile(e.target.files[0]);
 });
-const dz=document.getElementById('dropZone');
+const dz = document.getElementById('dropZone');
 dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag-over'); });
 dz.addEventListener('dragleave', ()=>dz.classList.remove('drag-over'));
-dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+dz.addEventListener('drop', e=>{
+  e.preventDefault(); dz.classList.remove('drag-over');
+  if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
 
+/* ═══════════════════════════════════════════
+   Chart controls
+══════════════════════════════════════════ */
 document.getElementById('windowSlider').addEventListener('input', e=>{
   document.getElementById('windowVal').textContent=e.target.value+' pts'; updateCharts();
 });
@@ -527,8 +976,11 @@ document.getElementById('startSlider').addEventListener('input', e=>{
 });
 document.getElementById('srInput').addEventListener('change', updateCharts);
 document.getElementById('scaleInput').addEventListener('change', updateCharts);
-document.getElementById('fmtSel').addEventListener('change', ()=>document.getElementById('errMsg').textContent='');
+document.getElementById('fmtSel').addEventListener('change', ()=>setErr(''));
 
+/* ═══════════════════════════════════════════
+   Sample data
+══════════════════════════════════════════ */
 document.getElementById('loadSample').addEventListener('click', e=>{
   e.stopPropagation();
   const n=2000, X=[],Y=[],Z=[];
@@ -539,7 +991,21 @@ document.getElementById('loadSample').addEventListener('click', e=>{
     Z.push(Math.round((16384 + Math.sin(2*Math.PI*0.4*t)*3000 + (Math.random()-.5)*800)));
   }
   setData(X,Y,Z);
-  document.getElementById('errMsg').textContent='';
+  setErr('');
+  document.getElementById('headerInfo').style.display = 'none';
+});
+
+/* ═══════════════════════════════════════════
+   Init — auto-load file list + settings on page load
+══════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  // Auto-detect device IP — page is served from the device itself
+  const ipEl = document.getElementById('deviceIp');
+  const host = window.location.hostname;
+  ipEl.value = host && host !== '' && host !== 'localhost' ? host : '192.168.1.1';
+
+  refreshFileList();
+  fetchSettings();
 });
 </script>
 </body>

@@ -290,3 +290,41 @@ esp_err_t settings_set_capture_ms(int32_t val)
     }
     return settings_set_i32(SETTINGS_KEY_CAPTURE_MS, val);
 }
+
+/* ------------------------------------------------------------------ wifi credentials */
+
+esp_err_t settings_get_wifi_ssid(char *buf, size_t buf_len)
+{
+    if (!buf || buf_len == 0) return ESP_ERR_INVALID_ARG;
+    esp_err_t ret = settings_get_str(SETTINGS_KEY_WIFI_SSID, buf, buf_len);
+    if (ret == ESP_ERR_NVS_NOT_FOUND)
+    {
+        buf[0] = '\0';
+        return ESP_OK;
+    }
+    return ret;
+}
+
+esp_err_t settings_set_wifi_ssid(const char *ssid)
+{
+    if (!ssid) return ESP_ERR_INVALID_ARG;
+    return settings_set_str(SETTINGS_KEY_WIFI_SSID, ssid);
+}
+
+esp_err_t settings_get_wifi_pass(char *buf, size_t buf_len)
+{
+    if (!buf || buf_len == 0) return ESP_ERR_INVALID_ARG;
+    esp_err_t ret = settings_get_str(SETTINGS_KEY_WIFI_PASS, buf, buf_len);
+    if (ret == ESP_ERR_NVS_NOT_FOUND)
+    {
+        buf[0] = '\0';
+        return ESP_OK;
+    }
+    return ret;
+}
+
+esp_err_t settings_set_wifi_pass(const char *pass)
+{
+    if (!pass) return ESP_ERR_INVALID_ARG;
+    return settings_set_str(SETTINGS_KEY_WIFI_PASS, pass);
+}

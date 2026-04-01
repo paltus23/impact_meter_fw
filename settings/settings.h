@@ -14,6 +14,13 @@
 #define SETTINGS_KEY_PROFILE_NUM    "profile_num"
 #define SETTINGS_KEY_PRECAPTURE_MS  "precap_ms"
 #define SETTINGS_KEY_CAPTURE_MS     "capture_ms"
+#define SETTINGS_KEY_WIFI_SSID      "wifi_ssid"
+#define SETTINGS_KEY_WIFI_PASS      "wifi_pass"
+
+/* ------------------------------------------------------------------ wifi credential sizes */
+
+#define SETTINGS_WIFI_SSID_MAX_LEN  33   /* 32 chars + null */
+#define SETTINGS_WIFI_PASS_MAX_LEN  65   /* 64 chars + null */
 
 /* ------------------------------------------------------------------ defaults */
 
@@ -113,5 +120,13 @@ esp_err_t settings_set_precapture_ms(int32_t val);
 /** Capture duration in milliseconds (default 2000 ms). */
 esp_err_t settings_get_capture_ms(int32_t *out_val);
 esp_err_t settings_set_capture_ms(int32_t val);
+
+/** WiFi station SSID (empty string = no saved credentials). */
+esp_err_t settings_get_wifi_ssid(char *buf, size_t buf_len);
+esp_err_t settings_set_wifi_ssid(const char *ssid);
+
+/** WiFi station password (may be empty for open networks). */
+esp_err_t settings_get_wifi_pass(char *buf, size_t buf_len);
+esp_err_t settings_set_wifi_pass(const char *pass);
 
 #endif /* SETTINGS_H */
