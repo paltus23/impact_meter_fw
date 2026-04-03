@@ -233,7 +233,7 @@ static void accel_task(void *arg)
             continue;
         }
 
-        if ((int_source & ADXL375_INT_WATERMARK) == 0U)
+        if ((int_source & ADXL375_INT_WATERMARK) == 0U && (int_source & ADXL375_INT_ACTIVITY) == 0U)
         {
             continue;
         }
@@ -262,7 +262,7 @@ static void accel_task(void *arg)
 
         if (!event_triggered)
         {
-            if ((int_source & ADXL375_INT_SINGLE_SHOCK) || (int_source & ADXL375_INT_ACTIVITY))
+            if ( (int_source & ADXL375_INT_ACTIVITY))
             {
                 esp_err_t ret = data_storage_open_profile(s_capture_file_name, &capture_file);
                 if (ret != ESP_OK)
@@ -295,6 +295,7 @@ static void accel_task(void *arg)
                 event_triggered = true;
                 capture_start_tick = xTaskGetTickCount();
                 ESP_LOGI(TAG, "event detected, capturing to '%s'", s_capture_file_name);
+                continue;
             }
         }
 

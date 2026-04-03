@@ -10,12 +10,12 @@
 #include "freertos/event_groups.h"
 #include <string.h>
 
-#define AP_SSID         "impact_meter"
-#define AP_MAX_CONN     4
-#define STA_TIMEOUT_MS  5000
+#define AP_SSID "impact_meter"
+#define AP_MAX_CONN 4
+#define STA_TIMEOUT_MS 5000
 
-#define WIFI_CONNECTED_BIT  BIT0
-#define WIFI_FAIL_BIT       BIT1
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT BIT1
 
 static const char *TAG = "wifi";
 
@@ -25,25 +25,30 @@ static bool s_sta_connected = false;
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data)
 {
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
+    {
         esp_wifi_connect();
-
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    {
         s_sta_connected = false;
         xEventGroupSetBits(s_event_group, WIFI_FAIL_BIT);
         ESP_LOGI(TAG, "STA disconnected");
-
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    }
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+    {
         ip_event_got_ip_t *e = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "STA got IP: " IPSTR, IP2STR(&e->ip_info.ip));
         s_sta_connected = true;
         xEventGroupSetBits(s_event_group, WIFI_CONNECTED_BIT);
-
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) {
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED)
+    {
         wifi_event_ap_staconnected_t *e = (wifi_event_ap_staconnected_t *)event_data;
         ESP_LOGI(TAG, "Client " MACSTR " joined AP, AID=%d", MAC2STR(e->mac), e->aid);
-
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STADISCONNECTED) {
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STADISCONNECTED)
+    {
         wifi_event_ap_stadisconnected_t *e = (wifi_event_ap_stadisconnected_t *)event_data;
         ESP_LOGI(TAG, "Client " MACSTR " left AP, AID=%d", MAC2STR(e->mac), e->aid);
     }
@@ -53,12 +58,12 @@ static void start_ap_mode(void)
 {
     wifi_config_t ap_cfg = {
         .ap = {
-            .ssid           = AP_SSID,
-            .ssid_len       = strlen(AP_SSID),
-            .channel        = 1,
-            .password       = "",
+            .ssid = AP_SSID,
+            .ssid_len = strlen(AP_SSID),
+            .channel = 1,
+            .password = "",
             .max_connection = AP_MAX_CONN,
-            .authmode       = WIFI_AUTH_OPEN,
+            .authmode = WIFI_AUTH_OPEN,
         },
     };
 
@@ -74,7 +79,8 @@ void wifi_init(void)
 
     /* NVS is already initialised by settings_init(), but the call is idempotent. */
     esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
@@ -102,10 +108,11 @@ void wifi_init(void)
     settings_get_wifi_ssid(ssid, sizeof(ssid));
     settings_get_wifi_pass(pass, sizeof(pass));
 
-    if (ssid[0] != '\0') {
+    if (ssid[0] != '\0')
+    {
         /* Try connecting to the saved station. */
         wifi_config_t sta_cfg = {0};
-        strlcpy((char *)sta_cfg.sta.ssid,     ssid, sizeof(sta_cfg.sta.ssid));
+        strlcpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid));
         strlcpy((char *)sta_cfg.sta.password, pass, sizeof(sta_cfg.sta.password));
         sta_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
@@ -120,14 +127,17 @@ void wifi_init(void)
                                                pdFALSE, pdFALSE,
                                                pdMS_TO_TICKS(STA_TIMEOUT_MS));
 
-        if (bits & WIFI_CONNECTED_BIT) {
+        if (bits & WIFI_CONNECTED_BIT)
+        {
             ESP_LOGI(TAG, "STA connected to \"%s\"", ssid);
             return;
         }
 
         ESP_LOGW(TAG, "STA connection to \"%s\" failed or timed out — switching to AP", ssid);
         ESP_ERROR_CHECK(esp_wifi_stop());
-    } else {
+    }
+    else
+    {
         ESP_LOGI(TAG, "No saved WiFi credentials — starting in AP mode");
     }
 
