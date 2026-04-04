@@ -183,13 +183,15 @@ static esp_err_t delete_all_files_handler(httpd_req_t *req)
 /* Build and send the current settings as a JSON object. */
 static esp_err_t send_settings_json(httpd_req_t *req)
 {
-    int32_t profile_num  = 0;
+    int32_t profile_num   = 0;
     int32_t precapture_ms = 0;
-    int32_t capture_ms   = 0;
+    int32_t capture_ms    = 0;
+    char    comment[SETTINGS_COMMENT_MAX_LEN] = {0};
 
     settings_get_profile_num(&profile_num);
     settings_get_precapture_ms(&precapture_ms);
     settings_get_capture_ms(&capture_ms);
+    settings_get_comment(comment, sizeof(comment));
 
     cJSON *root = cJSON_CreateObject();
     if (!root)
@@ -201,6 +203,7 @@ static esp_err_t send_settings_json(httpd_req_t *req)
     cJSON_AddNumberToObject(root, SETTINGS_KEY_PROFILE_NUM,   (double)profile_num);
     cJSON_AddNumberToObject(root, SETTINGS_KEY_PRECAPTURE_MS, (double)precapture_ms);
     cJSON_AddNumberToObject(root, SETTINGS_KEY_CAPTURE_MS,    (double)capture_ms);
+    cJSON_AddStringToObject(root, SETTINGS_KEY_COMMENT,       comment);
 
     char *body = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -226,7 +229,8 @@ static esp_err_t get_settings_handler(httpd_req_t *req)
 /* POST /api/settings  →  update one or more settings from a JSON body */
 static esp_err_t post_settings_handler(httpd_req_t *req)
 {
-#define SETTINGS_BODY_MAX 256
+    /* Reserve room for all numeric fields + a 127-char comment string + JSON overhead. */
+#define SETTINGS_BODY_MAX 512
     if (req->content_len == 0 || req->content_len > SETTINGS_BODY_MAX)
     {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Body missing or too large");
@@ -271,6 +275,19 @@ static esp_err_t post_settings_handler(httpd_req_t *req)
     {
         settings_set_capture_ms((int32_t)item->valueint);
         changed = true;
+    }
+
+    item = cJSON_GetObjectItem(root, SETTINGS_KEY_COMMENT);
+    if (item && cJSON_IsString(item))
+    {
+        if (settings_set_comment(item->valuestring) == ESP_OK)
+        {
+            changed = true;
+        }
+        else
+        {
+            ESP_LOGW(TAG, "comment rejected (too long or invalid)");
+        }
     }
 
     cJSON_Delete(root);

@@ -212,61 +212,11 @@
     border-radius: 50%;
     box-shadow: 0 0 6px var(--accent);
   }
-  .h1-device-ip {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: .05em;
-    color: var(--text3);
-  }
-  .h1-device-ip input {
-    background: var(--bg3);
-    border: 0.5px solid var(--border2);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 11px;
-    padding: 3px 8px;
-    outline: none;
-    width: 150px;
-    transition: border-color .15s;
-  }
-  .h1-device-ip input:focus { border-color: var(--accent); }
-
-  /* ── Parse options bar ───────────────────────── */
-  .parse-opts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    align-items: center;
-    background: var(--bg2);
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 16px;
-  }
-  .parse-opts label { color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
-  .parse-opts select, .parse-opts input[type=text], .parse-opts input[type=number] {
-    background: var(--bg3);
-    border: 0.5px solid var(--border2);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 12px;
-    padding: 4px 8px;
-    outline: none;
-    transition: border-color .15s;
-  }
-  .parse-opts select:focus, .parse-opts input:focus { border-color: var(--accent); }
-  .parse-opts .group { display: flex; align-items: center; gap: 6px; }
-
   /* ── Drop zone ───────────────────────────────── */
   .drop-zone {
     border: 1.5px dashed var(--border2);
     border-radius: var(--radius);
-    padding: 1.4rem 1rem;
+    padding: 14px 12px;
     text-align: center;
     cursor: pointer;
     transition: border-color .15s, background .15s;
@@ -276,8 +226,8 @@
     border-color: var(--accent);
     background: rgba(79,156,249,0.05);
   }
-  .drop-zone .dz-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-  .drop-zone .dz-sub { font-size: 11px; color: var(--text3); }
+  .drop-zone .dz-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .drop-zone .dz-sub { font-size: 10px; color: var(--text3); }
   .drop-zone .sample-btn {
     margin-top: 10px;
     background: none;
@@ -294,16 +244,44 @@
   .drop-zone .sample-btn:hover { background: rgba(79,156,249,0.1); border-color: var(--accent); }
 
   /* ── Error / header info ─────────────────────── */
-  .error-msg { color: #f97b7b; font-size: 12px; min-height: 16px; }
+  .error-msg { color: #f97b7b; font-size: 11px; min-height: 14px; }
   .header-info {
     display: none;
-    font-size: 11px;
-    color: var(--accent);
     background: rgba(79,156,249,0.07);
     border: 0.5px solid rgba(79,156,249,0.25);
     border-radius: 6px;
-    padding: 5px 12px;
-    letter-spacing: .04em;
+    padding: 8px 14px;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .hdr-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+  }
+  .hdr-field {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .hdr-key {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: var(--text3);
+  }
+  .hdr-val {
+    font-size: 11px;
+    color: var(--accent);
+    font-family: var(--font);
+  }
+  .hdr-comment {
+    font-size: 11px;
+    color: var(--text2);
+    font-style: italic;
+    border-top: 0.5px solid var(--border);
+    padding-top: 5px;
+    word-break: break-word;
   }
 
   /* ── Controls ────────────────────────────────── */
@@ -505,13 +483,7 @@
 </head>
 <body>
 
-<h1>
-  Accelerometer Visualizer
-  <div class="h1-device-ip">
-    <span>Device IP</span>
-    <input id="deviceIp" type="text" placeholder="192.168.x.x" />
-  </div>
-</h1>
+<h1>Accelerometer Visualizer</h1>
 
 <!-- ── Confirm modal ─────────────────────────────────── -->
 <div class="modal-backdrop" id="confirmModal">
@@ -579,6 +551,13 @@
             <input class="setting-input" id="sProfileNum" type="number" value="0" readonly style="opacity:.5;cursor:not-allowed" />
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-label">Device comment</div>
+          <div class="setting-desc">Stored in every capture file header</div>
+          <div class="setting-control">
+            <input class="setting-input" id="sComment" type="text" maxlength="127" placeholder="e.g. Robot A — left sensor" />
+          </div>
+        </div>
         <div class="settings-actions">
           <button class="btn btn-save" id="btnSaveSettings">✓ Save settings</button>
         </div>
@@ -586,48 +565,20 @@
       </div>
     </div>
 
-  </div><!-- /sidebar -->
-
-  <!-- ═══════════════ MAIN ═══════════════ -->
-  <div class="main-col">
-
-    <!-- Parse options -->
-    <div class="parse-opts">
-      <div class="group"><label>Format</label>
-        <select id="fmtSel">
-          <option value="text">Text / CSV</option>
-          <option value="binary" selected>Binary (int16 LE)</option>
-        </select>
-      </div>
-      <div class="group"><label>Columns</label>
-        <input id="colOrder" type="text" value="x,y,z" style="width:90px" title="e.g. x,y,z or t,x,y,z" />
-      </div>
-      <div class="group"><label>Separator</label>
-        <select id="sepSel">
-          <option value="auto">auto</option>
-          <option value=",">comma</option>
-          <option value="&#9;">tab</option>
-          <option value=" ">space</option>
-          <option value=";">semicolon</option>
-        </select>
-      </div>
-      <div class="group"><label>Sample rate (Hz)</label>
-        <input id="srInput" type="number" value="3200" min="1" max="100000" style="width:72px" />
-      </div>
-      <div class="group"><label>Scale (LSB/unit)</label>
-        <input id="scaleInput" type="number" value="20.408" min="0.0001" step="any" style="width:72px" title="49 mg/LSB → scale = 1/0.049 ≈ 20.408 for g" />
-      </div>
-    </div>
-
     <!-- Drop zone -->
     <div class="drop-zone" id="dropZone">
       <div class="dz-title">Drop file here or click to browse</div>
-      <div class="dz-sub">Binary (.bin .dat .raw) — int16 LE triplets &nbsp;|&nbsp; Text (.csv .txt) — one row per sample</div>
+      <div class="dz-sub">Binary capture file — int16 LE triplets (X, Y, Z)</div>
       <input type="file" id="fileIn" style="display:none" />
       <button class="sample-btn" id="loadSample">Load sample data</button>
     </div>
     <div class="error-msg" id="errMsg"></div>
     <div class="header-info" id="headerInfo"></div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <div class="main-col">
 
     <!-- Active profile bar -->
     <div class="active-profile">
@@ -722,13 +673,17 @@ let rawX=[], rawY=[], rawZ=[];
 let charts={};
 let activeFile = null;
 
+/* ADXL375: 49 mg/LSB → scale = 1/0.049 ≈ 20.408 LSB/g */
+const SCALE_LSB_PER_G = 20.408;
+let currentOdrHz = 3200;
+
 const COLORS = { X:'#4f9cf9', Y:'#3ecf8e', Z:'#f97b4f', A:'#a78bfa' };
 const gridColor = 'rgba(255,255,255,0.06)';
 const tickColor = '#555d78';
 
 function baseUrl() {
-  const ip = document.getElementById('deviceIp').value.trim().replace(/\/+$/, '');
-  return ip.startsWith('http') ? ip : 'http://' + ip;
+  const host = window.location.hostname || '192.168.1.1';
+  return window.location.origin !== 'null' ? window.location.origin : 'http://' + host;
 }
 
 function setErr(msg) { document.getElementById('errMsg').textContent = msg; }
@@ -767,13 +722,13 @@ initCharts();
 
 function updateCharts() {
   if (!rawX.length) return;
-  const sr = parseFloat(document.getElementById('srInput').value)||3200;
-  const scale = parseFloat(document.getElementById('scaleInput').value)||1;
-  const winSize = parseInt(document.getElementById('windowSlider').value);
+  const sr    = currentOdrHz;
+  const scale = SCALE_LSB_PER_G;
+  const winSize  = parseInt(document.getElementById('windowSlider').value);
   const startPct = parseInt(document.getElementById('startSlider').value)/100;
-  const total = rawX.length;
+  const total    = rawX.length;
   const startIdx = Math.floor(startPct*Math.max(0,total-winSize));
-  const endIdx = Math.min(total, startIdx+winSize);
+  const endIdx   = Math.min(total, startIdx+winSize);
 
   const xs = rawX.slice(startIdx,endIdx).map(v=>v/scale);
   const ys = rawY.slice(startIdx,endIdx).map(v=>v/scale);
@@ -795,16 +750,15 @@ function updateCharts() {
   setChartData(charts.Z, zs, document.getElementById('rngZ'));
   setChartData(charts.A, as, document.getElementById('rngA'));
 
-  const peakRaw = arr => Math.max(...arr.map(Math.abs));
+  const peakRaw    = arr => Math.max(...arr.map(Math.abs));
   const peakScaled = arr => (peakRaw(arr)/scale).toFixed(4);
   document.getElementById('stX').textContent = peakScaled(rawX);
   document.getElementById('stY').textContent = peakScaled(rawY);
   document.getElementById('stZ').textContent = peakScaled(rawZ);
   const allA = rawX.map((x,i)=>{ const sx=x/scale, sy=rawY[i]/scale, sz=rawZ[i]/scale; return Math.sqrt(sx*sx+sy*sy+sz*sz); });
   document.getElementById('stA').textContent = Math.max(...allA).toFixed(4);
-  const u = scale===1?'raw int16':'units';
-  ['stXr','stYr','stZr'].forEach(id=>document.getElementById(id).textContent=u);
-  document.getElementById('ptCount').textContent = total.toLocaleString()+' samples total';
+  ['stXr','stYr','stZr'].forEach(id=>document.getElementById(id).textContent='g');
+  document.getElementById('ptCount').textContent = total.toLocaleString()+' samples · '+sr+' Hz';
 }
 
 function setData(x,y,z) {
@@ -821,32 +775,67 @@ function setData(x,y,z) {
 /* ═══════════════════════════════════════════
    Parsers
 ══════════════════════════════════════════ */
-function parseText(text) {
-  const sep = document.getElementById('sepSel').value;
-  const colDef = document.getElementById('colOrder').value.split(',').map(s=>s.trim().toLowerCase());
-  const xi=colDef.indexOf('x'), yi=colDef.indexOf('y'), zi=colDef.indexOf('z');
-  if(xi<0||yi<0||zi<0) throw new Error('Column spec must include x, y, z');
-  const lines = text.split(/\r?\n/).filter(l=>l.trim()&&!l.trim().startsWith('#'));
-  const X=[],Y=[],Z=[];
-  for(const line of lines){
-    let parts = sep==='auto' ? line.trim().split(/[\s,;]+/) : line.trim().split(sep);
-    const x=parseFloat(parts[xi]), y=parseFloat(parts[yi]), z=parseFloat(parts[zi]);
-    if(isNaN(x)||isNaN(y)||isNaN(z)) continue;
-    X.push(x); Y.push(y); Z.push(z);
-  }
-  if(!X.length) throw new Error('No valid rows found. Check column order and separator.');
-  return [X,Y,Z];
-}
-
-const PROFILE_HEADER_MAGIC = 0x4C454341;
+const PROFILE_HEADER_MAGIC      = 0x4C454341;
+const PROFILE_HEADER_MIN_V1     = 15;   // bytes needed to read v1 fields
+const PROFILE_HEADER_MIN_V2     = 153;  // bytes needed to read v2 fields (25 fixed + 128 comment)
 
 function tryReadProfileHeader(view) {
-  if (view.byteLength < 15) return null;
+  if (view.byteLength < PROFILE_HEADER_MIN_V1) return null;
   if (view.getUint32(0, true) !== PROFILE_HEADER_MAGIC) return null;
+
+  const version    = view.getUint8(4);
   const headerSize = view.getUint16(5, true);
   const odrHz      = view.getFloat32(7, true);
   const dataSize   = headerSize >= 15 ? view.getUint32(11, true) : 0;
-  return { headerSize, odrHz, dataSize };
+
+  let timeCreated = null, hwVersion = null, sn = null, comment = null;
+
+  if (headerSize >= PROFILE_HEADER_MIN_V2 && view.byteLength >= PROFILE_HEADER_MIN_V2) {
+    timeCreated = view.getUint32(15, true);
+    hwVersion   = view.getUint16(19, true);
+    sn          = view.getUint32(21, true);
+    const raw   = new Uint8Array(view.buffer, view.byteOffset + 25, 128);
+    const end   = raw.indexOf(0);
+    comment     = new TextDecoder().decode(raw.subarray(0, end < 0 ? 128 : end));
+  }
+
+  return { version, headerSize, odrHz, dataSize, timeCreated, hwVersion, sn, comment };
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function buildHeaderInfoHTML(h) {
+  const fields = [
+    { key: 'Version',     val: `v${h.version}` },
+    { key: 'ODR',         val: `${h.odrHz} Hz` },
+    { key: 'Data size',   val: h.dataSize ? `${h.dataSize.toLocaleString()} B` : '—' },
+    { key: 'Header size', val: `${h.headerSize} B` },
+  ];
+
+  if (h.timeCreated !== null) {
+    const d = h.timeCreated > 0 ? new Date(h.timeCreated * 1000).toLocaleString() : '—';
+    fields.push({ key: 'Created', val: d });
+  }
+  if (h.hwVersion !== null) {
+    const major = (h.hwVersion >> 8) & 0xFF;
+    const minor =  h.hwVersion       & 0xFF;
+    fields.push({ key: 'HW rev', val: `${major}.${minor}` });
+  }
+  if (h.sn !== null) {
+    fields.push({ key: 'S/N', val: h.sn > 0 ? h.sn.toString() : '—' });
+  }
+
+  const grid = fields.map(f =>
+    `<div class="hdr-field"><span class="hdr-key">${f.key}</span><span class="hdr-val">${f.val}</span></div>`
+  ).join('');
+
+  const commentHTML = (h.comment !== null && h.comment.length > 0)
+    ? `<div class="hdr-comment">${escapeHtml(h.comment)}</div>`
+    : '';
+
+  return `<div class="hdr-grid">${grid}</div>${commentHTML}`;
 }
 
 function parseBinary(buf) {
@@ -855,12 +844,11 @@ function parseBinary(buf) {
   const header = tryReadProfileHeader(view);
   if (header) {
     sampleOffset = header.headerSize;
-    const srEl = document.getElementById('srInput');
-    if (srEl) srEl.value = header.odrHz;
+    currentOdrHz = header.odrHz || 3200;
     const infoEl = document.getElementById('headerInfo');
     if (infoEl) {
-      infoEl.textContent = `Profile header v1 · ODR ${header.odrHz} Hz · data ${header.dataSize ? header.dataSize.toLocaleString()+' B' : '(unknown)'}`;
-      infoEl.style.display = 'block';
+      infoEl.innerHTML = buildHeaderInfoHTML(header);
+      infoEl.style.display = 'flex';
     }
   } else {
     const infoEl = document.getElementById('headerInfo');
@@ -881,22 +869,17 @@ function parseBinary(buf) {
 
 function loadFile(file) {
   setErr('');
-  const fmt = document.getElementById('fmtSel').value;
   const reader = new FileReader();
   reader.onerror = ()=>setErr('Could not read file.');
   reader.onload = e=>{
     try {
-      let res;
-      if(fmt==='binary') res=parseBinary(e.target.result);
-      else res=parseText(e.target.result);
-      setData(...res);
+      setData(...parseBinary(e.target.result));
       activeFile = null;
       document.querySelectorAll('.file-item').forEach(it => it.classList.remove('active'));
       setActiveProfileName(file.name, 'local');
     } catch(err) { setErr(err.message); }
   };
-  if(fmt==='binary') reader.readAsArrayBuffer(file);
-  else reader.readAsText(file);
+  reader.readAsArrayBuffer(file);
 }
 
 /* ═══════════════════════════════════════════
@@ -1124,6 +1107,7 @@ async function fetchSettings() {
     document.getElementById('sPrecap').value = s.precap_ms ?? '';
     document.getElementById('sCapture').value = s.capture_ms ?? '';
     document.getElementById('sProfileNum').value = s.profile_num ?? '';
+    document.getElementById('sComment').value = s.comment ?? '';
     setSettingsStatus('Loaded from device', 'ok');
   } catch(e) {
     setSettingsStatus('Cannot reach device: ' + e.message, 'err');
@@ -1135,6 +1119,7 @@ async function saveSettings() {
   const payload = {
     precap_ms:  parseInt(document.getElementById('sPrecap').value),
     capture_ms: parseInt(document.getElementById('sCapture').value),
+    comment:    document.getElementById('sComment').value.slice(0, 127),
   };
   if (isNaN(payload.precap_ms) || isNaN(payload.capture_ms)) {
     setSettingsStatus('Invalid values', 'err'); return;
@@ -1184,10 +1169,6 @@ document.getElementById('windowSlider').addEventListener('input', e=>{
 document.getElementById('startSlider').addEventListener('input', e=>{
   document.getElementById('startPct').textContent=e.target.value+'%'; updateCharts();
 });
-document.getElementById('srInput').addEventListener('change', updateCharts);
-document.getElementById('scaleInput').addEventListener('change', updateCharts);
-document.getElementById('fmtSel').addEventListener('change', ()=>setErr(''));
-
 /* ═══════════════════════════════════════════
    Sample data
 ══════════════════════════════════════════ */
@@ -1200,6 +1181,7 @@ document.getElementById('loadSample').addEventListener('click', e=>{
     Y.push(Math.round((Math.cos(2*Math.PI*0.7*t)*6000 + Math.sin(2*Math.PI*3*t)*2000 + (Math.random()-.5)*1000)));
     Z.push(Math.round((16384 + Math.sin(2*Math.PI*0.4*t)*3000 + (Math.random()-.5)*800)));
   }
+  currentOdrHz = 3200;
   setData(X,Y,Z);
   setErr('');
   document.getElementById('headerInfo').style.display = 'none';
@@ -1212,11 +1194,6 @@ document.getElementById('loadSample').addEventListener('click', e=>{
    Init — auto-load file list + settings on page load
 ══════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', () => {
-  // Auto-detect device IP — page is served from the device itself
-  const ipEl = document.getElementById('deviceIp');
-  const host = window.location.hostname;
-  ipEl.value = host && host !== '' && host !== 'localhost' ? host : '192.168.1.1';
-
   refreshFileList();
   fetchSettings();
 });
