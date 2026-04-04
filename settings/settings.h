@@ -16,11 +16,19 @@
 #define SETTINGS_KEY_CAPTURE_MS     "capture_ms"
 #define SETTINGS_KEY_WIFI_SSID      "wifi_ssid"
 #define SETTINGS_KEY_WIFI_PASS      "wifi_pass"
+#define SETTINGS_KEY_HW_VERSION     "hw_version"
+#define SETTINGS_KEY_SN             "sn"
+#define SETTINGS_KEY_COMMENT        "comment"
 
 /* ------------------------------------------------------------------ wifi credential sizes */
 
 #define SETTINGS_WIFI_SSID_MAX_LEN  33   /* 32 chars + null */
 #define SETTINGS_WIFI_PASS_MAX_LEN  65   /* 64 chars + null */
+
+/* ------------------------------------------------------------------ device identity sizes */
+
+/** Maximum length of the device comment string, including the null terminator. */
+#define SETTINGS_COMMENT_MAX_LEN    128
 
 /* ------------------------------------------------------------------ defaults */
 
@@ -128,5 +136,26 @@ esp_err_t settings_set_wifi_ssid(const char *ssid);
 /** WiFi station password (may be empty for open networks). */
 esp_err_t settings_get_wifi_pass(char *buf, size_t buf_len);
 esp_err_t settings_set_wifi_pass(const char *pass);
+
+/**
+ * Hardware revision packed as (major << 8) | minor.
+ * Defaults to 0 when not set.
+ */
+esp_err_t settings_get_hw_version(uint16_t *out_val);
+esp_err_t settings_set_hw_version(uint16_t val);
+
+/**
+ * Device serial number.
+ * Defaults to 0 when not set.
+ */
+esp_err_t settings_get_sn(uint32_t *out_val);
+esp_err_t settings_set_sn(uint32_t val);
+
+/**
+ * Free-text device comment (max SETTINGS_COMMENT_MAX_LEN - 1 printable chars).
+ * Defaults to an empty string when not set.
+ */
+esp_err_t settings_get_comment(char *buf, size_t buf_len);
+esp_err_t settings_set_comment(const char *comment);
 
 #endif /* SETTINGS_H */

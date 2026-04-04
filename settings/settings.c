@@ -328,3 +328,65 @@ esp_err_t settings_set_wifi_pass(const char *pass)
     if (!pass) return ESP_ERR_INVALID_ARG;
     return settings_set_str(SETTINGS_KEY_WIFI_PASS, pass);
 }
+
+/* ------------------------------------------------------------------ device identity */
+
+esp_err_t settings_get_hw_version(uint16_t *out_val)
+{
+    if (!out_val) return ESP_ERR_INVALID_ARG;
+    uint32_t raw = 0;
+    esp_err_t ret = settings_get_u32(SETTINGS_KEY_HW_VERSION, &raw);
+    if (ret == ESP_ERR_NVS_NOT_FOUND)
+    {
+        *out_val = 0U;
+        return ESP_OK;
+    }
+    if (ret != ESP_OK) return ret;
+    *out_val = (uint16_t)(raw & 0xFFFFU);
+    return ESP_OK;
+}
+
+esp_err_t settings_set_hw_version(uint16_t val)
+{
+    return settings_set_u32(SETTINGS_KEY_HW_VERSION, (uint32_t)val);
+}
+
+esp_err_t settings_get_sn(uint32_t *out_val)
+{
+    if (!out_val) return ESP_ERR_INVALID_ARG;
+    esp_err_t ret = settings_get_u32(SETTINGS_KEY_SN, out_val);
+    if (ret == ESP_ERR_NVS_NOT_FOUND)
+    {
+        *out_val = 0U;
+        return ESP_OK;
+    }
+    return ret;
+}
+
+esp_err_t settings_set_sn(uint32_t val)
+{
+    return settings_set_u32(SETTINGS_KEY_SN, val);
+}
+
+esp_err_t settings_get_comment(char *buf, size_t buf_len)
+{
+    if (!buf || buf_len == 0) return ESP_ERR_INVALID_ARG;
+    esp_err_t ret = settings_get_str(SETTINGS_KEY_COMMENT, buf, buf_len);
+    if (ret == ESP_ERR_NVS_NOT_FOUND)
+    {
+        buf[0] = '\0';
+        return ESP_OK;
+    }
+    return ret;
+}
+
+esp_err_t settings_set_comment(const char *comment)
+{
+    if (!comment) return ESP_ERR_INVALID_ARG;
+    if (strlen(comment) >= SETTINGS_COMMENT_MAX_LEN)
+    {
+        ESP_LOGE(TAG, "comment too long (%u >= %u)", (unsigned)strlen(comment), SETTINGS_COMMENT_MAX_LEN);
+        return ESP_ERR_INVALID_ARG;
+    }
+    return settings_set_str(SETTINGS_KEY_COMMENT, comment);
+}

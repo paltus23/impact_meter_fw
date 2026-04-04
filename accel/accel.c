@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "driver/gpio.h"
 #include "data_storage.h"
@@ -431,12 +432,22 @@ static esp_err_t log_profile(const char *name)
 static esp_err_t accel_write_profile_header(data_storage_file_t file)
 {
     profile_header_t hdr = {
-        .magic       = PROFILE_HEADER_MAGIC,
-        .version     = PROFILE_HEADER_VERSION,
-        .header_size = (uint16_t)sizeof(profile_header_t),
-        .odr_hz      = adxl375_odr_to_hz(ACCEL_ODR),
-        .data_size   = 0U,
+        .magic        = PROFILE_HEADER_MAGIC,
+        .version      = PROFILE_HEADER_VERSION,
+        .header_size  = (uint16_t)sizeof(profile_header_t),
+        .odr_hz       = adxl375_odr_to_hz(ACCEL_ODR),
+        .data_size    = 0U,
+        .time_created = (uint32_t)time(NULL),
     };
+
+    uint16_t hw_version = 0;
+    uint32_t sn = 0;
+    settings_get_hw_version(&hw_version);
+    settings_get_sn(&sn);
+    hdr.hw_version = hw_version;
+    hdr.sn = sn;
+    settings_get_comment(hdr.comment, sizeof(hdr.comment));
+
     return data_storage_write(file, &hdr, sizeof(hdr));
 }
 
