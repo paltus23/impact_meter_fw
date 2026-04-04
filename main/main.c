@@ -6,6 +6,7 @@
 #include "led.h"
 #include "settings.h"
 #include "wifi.h"
+#include "rtc_server.h"
 
 void app_main(void)
 {
@@ -15,5 +16,7 @@ void app_main(void)
     battery_measure_init();
     led_init();
     accel_init();
+    rtc_server_init();
     http_server_init();
+    
 }

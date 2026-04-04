@@ -16,6 +16,7 @@ set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/led"
     "${CMAKE_CURRENT_LIST_DIR}/settings"
     "${CMAKE_CURRENT_LIST_DIR}/wifi"
+    "${CMAKE_CURRENT_LIST_DIR}/rtc_server"
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
