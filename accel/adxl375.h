@@ -156,7 +156,7 @@ typedef struct
     esp_err_t adxl375_configure(adxl375_handle_t handle, uint8_t bw_rate, uint8_t power_ctl);
 
     /** Raw 16-bit two's complement axis samples (registers 0x32–0x37). */
-    esp_err_t adxl375_read_xyz(adxl375_handle_t handle, int16_t *x, int16_t *y, int16_t *z);
+    esp_err_t adxl375_read_xyz_mg(adxl375_handle_t handle, int16_t *x, int16_t *y, int16_t *z);
 
     esp_err_t adxl375_data_format(adxl375_handle_t handle, bool self_test, bool spi_3wire, bool int_invert, bool justify_msb);
 
@@ -199,7 +199,7 @@ typedef struct
      * Read up to `max_samples` samples from FIFO into `out_samples`.
      * `read_samples` returns actual number read.
      */
-    esp_err_t adxl375_read_fifo_samples(adxl375_handle_t handle, adxl375_sample_t *out_samples, size_t max_samples, size_t *read_samples);
+    esp_err_t adxl375_read_fifo_samples_mg(adxl375_handle_t handle, adxl375_sample_t *out_samples, size_t max_samples, size_t *read_samples);
 #ifdef __cplusplus
 }
 #endif

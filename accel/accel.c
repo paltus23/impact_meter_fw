@@ -249,7 +249,7 @@ static void accel_task(void *arg)
         }
 
         size_t read_samples = 0;
-        if (adxl375_read_fifo_samples(s_adxl, fifo_samples, ADXL375_FIFO_READ_BUFFER_SAMPLES, &read_samples) != ESP_OK)
+        if (adxl375_read_fifo_samples_mg(s_adxl, fifo_samples, ADXL375_FIFO_READ_BUFFER_SAMPLES, &read_samples) != ESP_OK)
         {
             ESP_LOGW(TAG, "failed to read FIFO");
             continue;
@@ -304,6 +304,7 @@ static void accel_task(void *arg)
                 event_triggered = true;
                 capture_start_tick = xTaskGetTickCount();
                 ESP_LOGI(TAG, "event detected, capturing to '%s'", s_capture_file_name);
+
                 continue;
             }
         }

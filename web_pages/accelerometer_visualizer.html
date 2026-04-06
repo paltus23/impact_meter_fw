@@ -731,7 +731,7 @@ initCharts();
 function updateCharts() {
   if (!rawX.length) return;
   const sr    = currentOdrHz;
-  const scale = SCALE_LSB_PER_G;
+  const scale = 1000;
   const winSize  = parseInt(document.getElementById('windowSlider').value);
   const startPct = parseInt(document.getElementById('startSlider').value)/100;
   const total    = rawX.length;
