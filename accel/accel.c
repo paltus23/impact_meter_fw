@@ -17,6 +17,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "task_analyze.h"
 
 #define ACCEL_TASK_STACK_WORDS 4096
 #define ACCEL_TASK_PRIORITY 5
@@ -48,23 +49,25 @@
 
 /* Ring buffer sizing: upper bound is taken from settings so both layers agree.
  * SETTINGS_MAX_PRECAPTURE_MS=5000 → 500 samples × 6 B = 3 kB of static storage. */
-#define ACCEL_RING_BUFFER_SAMPLE_RATE   100
-#define ACCEL_RING_BUFFER_MAX_SAMPLES   ((SETTINGS_MAX_PRECAPTURE_MS * ACCEL_RING_BUFFER_SAMPLE_RATE) / 1000)
+#define ACCEL_RING_BUFFER_SAMPLE_RATE 100
+#define ACCEL_RING_BUFFER_MAX_SAMPLES ((SETTINGS_MAX_PRECAPTURE_MS * ACCEL_RING_BUFFER_SAMPLE_RATE) / 1000)
 
-#define ACCEL_CAPTURE_FILE_NAME_FMT     "impact_%ld.bin"
-#define ACCEL_CAPTURE_FILE_NAME_LEN     32
+#define ACCEL_CAPTURE_FILE_NAME_FMT "impact_%ld.bin"
+#define ACCEL_CAPTURE_FILE_NAME_LEN 32
 
 static adxl375_handle_t s_adxl;
 static TaskHandle_t s_accel_task_handle;
-
+#ifdef CONFIG_FREERTOS_USE_TRACE_FACILITY
+static TaskHandle_t s_accel_track_task_handle;
+#endif
 static const char *TAG = "accel";
 
 /* ------------------------------------------------------------------ runtime settings */
 
-static int32_t s_profile_num   = SETTINGS_DEFAULT_PROFILE_NUM;
+static int32_t s_profile_num = SETTINGS_DEFAULT_PROFILE_NUM;
 static int32_t s_precapture_ms = SETTINGS_DEFAULT_PRECAPTURE_MS;
-static int32_t s_capture_ms    = SETTINGS_DEFAULT_CAPTURE_MS;
-static char    s_capture_file_name[ACCEL_CAPTURE_FILE_NAME_LEN];
+static int32_t s_capture_ms = SETTINGS_DEFAULT_CAPTURE_MS;
+static char s_capture_file_name[ACCEL_CAPTURE_FILE_NAME_LEN];
 
 /* ------------------------------------------------------------------ ring buffer */
 
@@ -143,10 +146,10 @@ static esp_err_t accel_ring_buffer_flush_to_file(data_storage_file_t file)
         return ESP_OK;
     }
 
-    const size_t cap   = s_pre_event_buffer.capacity;
+    const size_t cap = s_pre_event_buffer.capacity;
     const size_t start = (s_pre_event_buffer.head + cap - s_pre_event_buffer.count) % cap;
 
-    const size_t first_part  = cap - start;
+    const size_t first_part = cap - start;
     const size_t first_count = (s_pre_event_buffer.count < first_part)
                                    ? s_pre_event_buffer.count
                                    : first_part;
@@ -214,10 +217,16 @@ static void accel_task(void *arg)
     size_t capture_data_bytes = 0;
 
     event_start_tick = xTaskGetTickCount() + pdMS_TO_TICKS(3000);
-
+    static TickType_t print_ticks = 0;
     for (;;)
     {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
+
+        TickType_t elapsed_ticks = xTaskGetTickCount() - print_ticks;
+        if (elapsed_ticks >= pdMS_TO_TICKS(6000))
+        {
+            ESP_LOGW(TAG, "task is idle");
+        }
 
         /* Reload settings if the HTTP layer pushed a config-changed notification. */
         EventBits_t cfg_bits = xEventGroupGetBits(settings_get_event_group());
@@ -251,8 +260,7 @@ static void accel_task(void *arg)
             continue;
         }
 
-        static TickType_t print_ticks = 0;
-        TickType_t elapsed_ticks = xTaskGetTickCount() - print_ticks;
+        elapsed_ticks = xTaskGetTickCount() - print_ticks;
         if (elapsed_ticks >= pdMS_TO_TICKS(5000))
         {
             print_ticks = xTaskGetTickCount();
@@ -263,7 +271,7 @@ static void accel_task(void *arg)
 
         if (!event_triggered)
         {
-            if ( (int_source & ADXL375_INT_ACTIVITY))
+            if ((int_source & ADXL375_INT_ACTIVITY))
             {
                 esp_err_t ret = data_storage_open_profile(s_capture_file_name, &capture_file);
                 if (ret != ESP_OK)
@@ -323,7 +331,7 @@ static void accel_task(void *arg)
                 s_profile_num++;
                 settings_set_profile_num(s_profile_num);
                 snprintf(s_capture_file_name, sizeof(s_capture_file_name),
-                ACCEL_CAPTURE_FILE_NAME_FMT, (long)s_profile_num);
+                         ACCEL_CAPTURE_FILE_NAME_FMT, (long)s_profile_num);
                 continue;
             }
 
@@ -338,6 +346,15 @@ static void accel_task(void *arg)
                 capture_data_bytes += chunk_bytes;
             }
         }
+    }
+}
+
+static void accel_track_task(void *arg)
+{
+    for (;;)
+    {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        task_analyze_watermark(s_accel_task_handle);
     }
 }
 
@@ -432,11 +449,11 @@ static esp_err_t log_profile(const char *name)
 static esp_err_t accel_write_profile_header(data_storage_file_t file)
 {
     profile_header_t hdr = {
-        .magic        = PROFILE_HEADER_MAGIC,
-        .version      = PROFILE_HEADER_VERSION,
-        .header_size  = (uint16_t)sizeof(profile_header_t),
-        .odr_hz       = adxl375_odr_to_hz(ACCEL_ODR),
-        .data_size    = 0U,
+        .magic = PROFILE_HEADER_MAGIC,
+        .version = PROFILE_HEADER_VERSION,
+        .header_size = (uint16_t)sizeof(profile_header_t),
+        .odr_hz = adxl375_odr_to_hz(ACCEL_ODR),
+        .data_size = 0U,
         .time_created = (uint32_t)time(NULL),
     };
 
@@ -488,6 +505,11 @@ void accel_init(void)
 
     xTaskCreate(accel_task, "accel", ACCEL_TASK_STACK_WORDS, NULL,
                 ACCEL_TASK_PRIORITY, &s_accel_task_handle);
+
+#ifdef CONFIG_FREERTOS_USE_TRACE_FACILITY
+    xTaskCreate(accel_track_task, "accel_track", 4096, NULL,
+                ACCEL_TASK_PRIORITY, &s_accel_track_task_handle);
+#endif
 
     ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, 0, 0x00));
     ESP_ERROR_CHECK(adxl375_interrupt_configure(s_adxl, ADXL375_INT_WATERMARK | ADXL375_INT_SINGLE_SHOCK | ADXL375_INT_ACTIVITY, 0x00));
