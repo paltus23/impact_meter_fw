@@ -18,5 +18,4 @@ void app_main(void)
     accel_init();
     rtc_server_init();
     http_server_init();
-    
 }
